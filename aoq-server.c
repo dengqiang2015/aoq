@@ -100,7 +100,8 @@ void socket_read_cb(int fd, short events, void *arg)
 	ChunkNode *node = mpalloc();
 	int len = read(fd, node->chunk, CKSIZE-1);
 	int r = 0;
-	
+
+
 	if( len <=0 )
 	{
 		mpfree(node);
@@ -124,16 +125,7 @@ void socket_read_cb(int fd, short events, void *arg)
 		insertMemSlab(memslab, node);
 	}
 	
-	if(len <=0 )
-	{
-		freeMemSlab(memslab);
-		struct event *ev = (struct event*)arg;
-		Serv->client_connection--;
-		close(event_get_fd(ev));
-		event_free(ev);
-		return ;
-	}
-	
+
 	Arg *args = (Arg *)malloc(5*sizeof(Arg));
 	Arg *a = args;
 	for(r=0;r<5;r++)
@@ -144,14 +136,17 @@ void socket_read_cb(int fd, short events, void *arg)
 	}
 	
 
+
 	r = parse_args(memslab, &command_num, args);
 
 	if(r > 0)
 	{
+	
 		(*commandFunc[command_num])(fd, args);
 	}
 	else
 	{
+		
 		freeArgs(args);
 	}
 	

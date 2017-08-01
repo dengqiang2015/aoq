@@ -19,15 +19,15 @@ int status(int fd, Arg *args)
 	int arg_len =0;
 
 	sprintf(stat,
-	"PID:%d\n\
-START TIME:%s\n\
-CLIENT CONNECTION:%d\n\
-MEMORY TOTAL:%d\n\
-HASH TABLE SIZE:%d\n\
-HASH TABLE TOTAL:%d\n\
-MEMPOOL SIZE:%d\n\
-MEMPOOL TOTAL:%d\n\
-CHUNK SIZE:%d\n",
+"{\"PID\":%d,\
+\"START_TIME\":\"%s\",\
+\"CLIENT_CONNECTION\":%d,\
+\"MEMORY_TOTAL\":%d,\
+\"HASH_TABLE_SIZE\":%d,\
+\"HASH_TABLE_TOTAL\":%d,\
+\"MEMPOOL_SIZE\":%d,\
+\"MEMPOOL_TOTAL\":%d,\
+\"CHUNK_SIZE\":%d}\n",
 	Serv->pid,
 	Serv->start_time,
 	Serv->client_connection,
@@ -47,6 +47,7 @@ CHUNK SIZE:%d\n",
 
 int push(int fd, Arg *args)
 {
+
 	if(args->len == 0 || args->len >= 1024)
 	{
 		write(fd, "100200001 0\n", 12);
@@ -93,16 +94,18 @@ int pop(int fd, Arg *args)
 	{
 		Arg *arg = (*qnode)->arg+1;
 		char **ptr = arg->cursor->ptr;
-		sprintf(head, "1003%05d ", arg->len+1);
+		sprintf(head, "1003%05d ", arg->len);
 		write(fd, head, 10);
 		write(fd, *ptr, strlen(*ptr));
+
 		while(arg->cursor->node->next != NULL)
 		{
 			arg->cursor->node = arg->cursor->node->next;
 			*ptr = arg->cursor->node->chunk;
-			write(fd, *ptr, CKSIZE-1);
+			write(fd, *ptr, strlen(*ptr));
+
 		}
-		//write(fd, "\n", 1);
+
 		freeArgs((*qnode)->arg);
 		ptr = NULL;
 	}
@@ -183,7 +186,7 @@ int queue(int fd, Arg *args)
 			tail_id = aoq->tail->next->uniqid;
 		}
 		
-		sprintf(q, "total:%d\nhead id:%d\ntail id:%d\n", aoq->total, head_id, tail_id);
+		sprintf(q, "{\"TOTAL\":%d,\"HEAD_ID\":%d,\"TAIL_ID\":%d}\n", aoq->total, head_id, tail_id);
 		arg_len = strlen(q);
 		sprintf(head, "1005%05d ", arg_len);
 		write(fd, head, 10);
@@ -210,11 +213,12 @@ int delqueue(int fd, Arg *args)
 	memcpy(qname, *(args->cursor->ptr), args->len);
 	qname = trim(qname, args->len);
 	hash_find(ht, qname, r);
-	free(qname);
+	freeArgs(args);
 	AOQ *aoq = (AOQ *)(*r);
 
 	if(aoq == NULL)
 	{
+	
 		write(fd, "100600001 0\n", 12);
 	}
 	else
@@ -223,8 +227,8 @@ int delqueue(int fd, Arg *args)
 		hash_delete(ht, qname);
 		write(fd, "100600001 1\n", 12);
 	}
-
-	freeArgs(args);
+	
+	free(qname);
 	free(r);
 	r = NULL;
 	return 1;

@@ -73,7 +73,7 @@ int parse_args(MemSlab *memslab, int * command_num, Arg *args)
 
 	cursor->node = memslab->head->next;
 	cursor->slab = memslab;
-	
+
 	int head_len = parse_head_len(cursor);
 
 	*command_num = parse_comman_num(cursor);
@@ -81,6 +81,7 @@ int parse_args(MemSlab *memslab, int * command_num, Arg *args)
 	
 	if(head_len <=0 || *command_num <=0)
 	{
+		printf("headlen:%d,commandnum:%d\n", head_len, *command_num);
 		return -1;
 	}
 

@@ -26,13 +26,18 @@ int createMemPool(MemPool * mp)
 		node->chunk = (char *)malloc(mp->cksize*sizeof(char));
 		memset(node->chunk, '\0', mp->cksize);
 		node->next = NULL;
-		mp->tail->next = node;
-		mp->tail = node;
-		mp->total++;
-		if(i == 0)
+		if(mp->tail->next == NULL)
 		{
 			mp->head->next = node;
+			mp->tail->next = node;
 		}
+		else
+		{
+			mp->tail->next->next = node;
+			mp->tail->next = node;
+		}
+
+		mp->total++;
 	}
 	return 1;
 }
@@ -43,7 +48,11 @@ ChunkNode * mpalloc()
 	ChunkNode * node = NULL;
 	if(mp->head->next == NULL)
 	{
+		mp->tail->next = NULL;
 		node = (ChunkNode *)malloc(sizeof(ChunkNode));
+		node->chunk = (char *)malloc(mp->cksize*sizeof(char));
+		memset(node->chunk, '\0', mp->cksize);
+		node->next = NULL;
 	}
 	else
 	{
@@ -51,7 +60,7 @@ ChunkNode * mpalloc()
 		mp->head->next = mp->head->next->next;
 		mp->total--;
 	}
-	
+
 	node->next = NULL;
 	return node;
 }
@@ -69,12 +78,16 @@ int mpfree(ChunkNode * node)
 	{
 		memset(node->chunk, '\0', mp->cksize);
 		node->next = NULL;
-		mp->tail->next = node;
-		mp->tail = node;
 		
 		if(mp->total == 0)
 		{
 			mp->head->next = node;
+			mp->tail->next = node;
+		}
+		else
+		{
+			mp->tail->next->next = node;
+			mp->tail->next = node;
 		}
 		
 		mp->total++;
@@ -97,14 +110,10 @@ MemSlab * createMemSlab(int size)
 
 int insertMemSlab(MemSlab *memslab, ChunkNode *node)
 {
-	if(memslab->head->next == NULL)
+	if(memslab->head->next == NULL || memslab->tail->next == NULL)
 	{
 		memslab->head->next = node;
-	}
-	
-	if(memslab->tail->next == NULL)
-	{
-		memslab->head->next = node;
+		memslab->tail->next = node;
 	}
 	else
 	{
