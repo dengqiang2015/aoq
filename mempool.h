@@ -2,10 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define MAXCHUNCK 10000000
 #define CKSIZE 1024
-#define MPSIZE 1024
-
+#define MPSIZE 100000
 
 typedef struct _chunk_node
 {

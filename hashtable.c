@@ -152,7 +152,6 @@ int hash_keys(HashTable *ht, char *keys, int *len)
 	const char n = '\n';
 	int kslen = 0;
 	int klen = 0;
-	int ksize = sizeof(keys);
 	char *ks = keys;
 
 	if(ht->total >0)
@@ -168,13 +167,6 @@ int hash_keys(HashTable *ht, char *keys, int *len)
 			
 			klen = strlen(bucket->key);
 		
-			if(ksize < (kslen+klen))
-			{
-				keys = (char *)realloc(keys, (ksize+1024)*sizeof(char));
-				ks = keys+kslen;
-				ksize = ksize+1024;
-			}
-		
 			memcpy(ks, bucket->key, klen);
 			ks+=klen;
 			memcpy(ks, &b, 1);
@@ -188,7 +180,7 @@ int hash_keys(HashTable *ht, char *keys, int *len)
 	}
 	
 
-	*len = kslen;
+	*len = *len+kslen;
     return SUCCESS;
 }
 

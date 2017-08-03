@@ -5,6 +5,16 @@
 
 #include "func.c"
 
+char * get_queue_name(Arg *args)
+{
+	char * qname = (char *)malloc((args->len+1)*sizeof(char));
+	memset(qname, '\0', args->len+1);
+	memcpy(qname, *(args->cursor->ptr), args->len);
+	qname = trim(qname, args->len);
+	return qname;
+}
+
+
 int nil(int fd, Arg *args)
 {
 	freeArgs(args);
@@ -13,13 +23,13 @@ int nil(int fd, Arg *args)
 
 int status(int fd, Arg *args)
 {
-	char stat[512] = {'\0'};
-	char head[11] = {'\0'};
+	char head[12] = {'\0'};
+	char res[512] = {'\0'};
 	int memtotal = get_rmem(Serv->pid);
-	int arg_len =0;
+	int arg_len = 0;
 
-	sprintf(stat,
-"{\"PID\":%d,\
+	sprintf(res,
+"0000000000 {\"PID\":%d,\
 \"START_TIME\":\"%s\",\
 \"CLIENT_CONNECTION\":%d,\
 \"MEMORY_TOTAL\":%d,\
@@ -37,10 +47,10 @@ int status(int fd, Arg *args)
 	Serv->mp->size,
 	Serv->mp->total,
 	Serv->mp->cksize);
-	arg_len = strlen(stat);
-	sprintf(head, "1001%05d ", arg_len);
-	write(fd, head, strlen(head));
-	write(fd, stat, arg_len);
+	arg_len = strlen(res);
+	sprintf(head, "1101%06d ", arg_len-12);
+	memcpy(res, head, 11);
+	write(fd, res, arg_len);
 	freeArgs(args);
 	return 1;
 } 
@@ -50,22 +60,26 @@ int push(int fd, Arg *args)
 
 	if(args->len == 0 || args->len >= 1024)
 	{
-		write(fd, "100200001 0\n", 12);
+		write(fd, "1102000001 0\n", 12);
 		freeArgs(args);
 		return 1;
 	}
 	
-	Arg *arg = args;
-	char * qname = (char *)malloc((arg->len+1)*sizeof(char));
-	memset(qname, '\0', arg->len+1);
-	memcpy(qname, *(arg->cursor->ptr), arg->len);
-	qname = trim(qname, args->len);
-	arg++;
+
+	char *qname = get_queue_name(args);
+	if(strlen(qname) <=0 )
+	{
+
+		freeArgs(args);
+		free(qname);
+		write(fd, "1102000001 0\n", 13);
+		return 1;
+	}
 	AOQ *aoq = getQueue(qname, ht);
 	free(qname);
 	Qnode *qnode = createQnode(args);
 	pushQueue(aoq, qnode);
-	write(fd, "100200001 1\n", 12);
+	write(fd, "1102000001 1\n", 13);
 
 	return 1;
 } 
@@ -74,16 +88,20 @@ int pop(int fd, Arg *args)
 {
 	if(args->len == 0 || args->len >= 1024)
 	{
-		write(fd, "100300000 \n", 11);
+		write(fd, "1103000000 \n", 12);
 		freeArgs(args);
 		return 1;
 	}
-	char head[11] = {'\0'};
-	char *qname = (char *)malloc((args->len+1)*sizeof(char));
-	memset(qname, '\0', args->len+1);
-	memcpy(qname, *(args->cursor->ptr), args->len);
-	qname = trim(qname, args->len);
-	
+
+	char *qname = get_queue_name(args);
+	if(strlen(qname) <=0 )
+	{
+
+		freeArgs(args);
+		free(qname);
+		write(fd, "1102000000 \n", 12);
+		return 1;
+	}
 	AOQ *aoq = getQueue(qname, ht);
 	free(qname);
 		
@@ -92,26 +110,25 @@ int pop(int fd, Arg *args)
 	int r = popQueue(aoq, qnode);
 	if(r >0)
 	{
+
 		Arg *arg = (*qnode)->arg+1;
 		char **ptr = arg->cursor->ptr;
-		sprintf(head, "1003%05d ", arg->len);
-		write(fd, head, 10);
-		write(fd, *ptr, strlen(*ptr));
-
+		memset(pop_response, '\0', arg->len+12);
+		sprintf(pop_response, "1103%06d ", arg->len);
+		strcat(pop_response, *ptr);
 		while(arg->cursor->node->next != NULL)
 		{
 			arg->cursor->node = arg->cursor->node->next;
 			*ptr = arg->cursor->node->chunk;
-			write(fd, *ptr, strlen(*ptr));
-
+			strcat(pop_response, *ptr);
 		}
-
+		write(fd, pop_response, strlen(pop_response));
 		freeArgs((*qnode)->arg);
 		ptr = NULL;
 	}
 	else
 	{
-		write(fd, "100300000 \n", 11);
+		write(fd, "1103000000 \n", 12);
 	}
 	
 	free(*qnode);
@@ -123,26 +140,25 @@ int pop(int fd, Arg *args)
 
 int queues(int fd, Arg *args)
 {
-	char head[11] = {'\0'};
-	int arg_len = 0;
-	char *qs = (char *)malloc(1024*sizeof(char));
-	memset(qs, '\0', 1024);
 
-	hash_keys(ht, qs, &arg_len);
+	int arg_len = 11;
+	char qs[1048576] = {'\0'};
+	sprintf(qs, "1104000000 ", arg_len);
+
+	hash_keys(ht, &qs[11], &arg_len);
 	
-	if(arg_len == 0)
+	if(arg_len == 11)
 	{
-		write(fd, "100400000 \n", 11);
+		write(fd, "1104000000 \n", 12);
 	}
 	else
 	{
-		sprintf(head, "1004%05d ", arg_len);
-		write(fd, head, 10);
+		char head[12] = {'\0'};
+		sprintf(head, "1104%06d ", arg_len-12);
+		memcpy(qs, head, 11);
 		write(fd, qs, arg_len);
 	}
 
-	free(qs);
-	qs = NULL;
 	freeArgs(args);
 	return 1;
 	
@@ -152,25 +168,33 @@ int queue(int fd, Arg *args)
 {
 	if(args->len == 0 || args->len >= 1024)
 	{
-		write(fd, "100500000 \n", 11);
+		write(fd, "1105000000 \n", 12);
 		freeArgs(args);
 		return 1;
 	}
-	char q[200] = {'\0'};
-	char head[11] = {'\0'};
+
+	char head[12] = {'\0'};
+	char res[200] = {'\0'};
 	int arg_len = 0;
+
+	char *qname = get_queue_name(args);
+	if(strlen(qname) <= 0)
+	{
+
+		freeArgs(args);
+		free(qname);
+		write(fd, "1105000000 \n", 12);
+		return 1;
+	}
+	
 	void **r = (void **)calloc(1, sizeof(void *));
-	char * qname = (char *)malloc((args->len+1)*sizeof(char));
-	memset(qname, '\0', args->len+1);
-	memcpy(qname, *(args->cursor->ptr), args->len);
-	qname = trim(qname, args->len);
-	hash_find(ht, qname, r);
-	free(qname);
+	int is_exist = hash_find(ht, qname, r);
+	
 	AOQ *aoq = (AOQ *)(*r);
 
-	if(aoq == NULL)
+	if(is_exist != 1 || aoq == NULL)
 	{
-		write(fd, "100500000 \n", 11);
+		write(fd, "1105000000 \n", 12);
 	}
 	else
 	{
@@ -186,13 +210,13 @@ int queue(int fd, Arg *args)
 			tail_id = aoq->tail->next->uniqid;
 		}
 		
-		sprintf(q, "{\"TOTAL\":%d,\"HEAD_ID\":%d,\"TAIL_ID\":%d}\n", aoq->total, head_id, tail_id);
-		arg_len = strlen(q);
-		sprintf(head, "1005%05d ", arg_len);
-		write(fd, head, 10);
-		write(fd, q, arg_len);
+		sprintf(res, "0000000000 {\"TOTAL\":%d,\"HEAD_ID\":%d,\"TAIL_ID\":%d}\n", aoq->total, head_id, tail_id);
+		arg_len = strlen(res);
+		sprintf(head, "1106%06d ", arg_len-12);
+		memcpy(res, head, 11);
+		write(fd, res, arg_len);
 	}
-	
+	free(qname);
 	freeArgs(args);
 	free(r);
 	r = NULL;
@@ -203,29 +227,34 @@ int delqueue(int fd, Arg *args)
 {
 	if(args->len == 0 || args->len >= 1024)
 	{
-		write(fd, "100600001 0\n", 12);
+		write(fd, "1106000001 0\n", 13);
 		freeArgs(args);
 		return 1;
 	}
+
+	char *qname = get_queue_name(args);
+	if(strlen(qname) <= 0)
+	{
+
+		freeArgs(args);
+		free(qname);
+		write(fd, "1106000001 0\n", 13);
+		return 1;
+	}
 	void **r = (void **)malloc(sizeof(void *));
-	char * qname = (char *)malloc((args->len+1)*sizeof(char));
-	memset(qname, '\0', args->len+1);
-	memcpy(qname, *(args->cursor->ptr), args->len);
-	qname = trim(qname, args->len);
-	hash_find(ht, qname, r);
+	int is_exist = hash_find(ht, qname, r);
 	freeArgs(args);
 	AOQ *aoq = (AOQ *)(*r);
 
-	if(aoq == NULL)
+	if(is_exist != 1 || aoq == NULL)
 	{
-	
-		write(fd, "100600001 0\n", 12);
+		write(fd, "1106000001 0\n", 13);
 	}
 	else
 	{
 		deleteQueue(aoq);
 		hash_delete(ht, qname);
-		write(fd, "100600001 1\n", 12);
+		write(fd, "1106000001 1\n", 13);
 	}
 	
 	free(qname);
@@ -234,5 +263,3 @@ int delqueue(int fd, Arg *args)
 	return 1;
 
 }  
-
-COMMANDFUNCPTR commandFunc[] = {nil, status, push, pop, queues, queue, delqueue};

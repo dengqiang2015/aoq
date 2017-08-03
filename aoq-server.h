@@ -11,6 +11,7 @@
 #include<sys/param.h>   
 #include<sys/types.h>   
 #include<sys/stat.h>
+#include<sys/time.h>
 #include "debug.h"
 
 #ifndef _INCLUDE_SERVERSTAT_H 

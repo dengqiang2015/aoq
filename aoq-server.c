@@ -5,6 +5,12 @@
 #include "parser.c"
 #include "command.c"
 
+void mtime(const char *tag)
+{
+	struct timeval tv;
+    gettimeofday(&tv,NULL);
+    printf("%s:%ld\n", tag, tv.tv_sec*1000 + tv.tv_usec/1000);  //毫秒
+}
  
 void init_daemon(void)   
 {   
@@ -96,11 +102,9 @@ void accept_cb(int fd, short events, void* arg)
 void socket_read_cb(int fd, short events, void *arg)
 {
 
-
 	ChunkNode *node = mpalloc();
 	int len = read(fd, node->chunk, CKSIZE-1);
 	int r = 0;
-
 
 	if( len <=0 )
 	{
@@ -134,14 +138,11 @@ void socket_read_cb(int fd, short events, void *arg)
 		a->len = 0;
 		a++;
 	}
-	
-
 
 	r = parse_args(memslab, &command_num, args);
 
 	if(r > 0)
 	{
-	
 		(*commandFunc[command_num])(fd, args);
 	}
 	else
@@ -149,6 +150,7 @@ void socket_read_cb(int fd, short events, void *arg)
 		
 		freeArgs(args);
 	}
+	
 	
 }
 

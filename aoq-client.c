@@ -97,19 +97,18 @@ int protocol_convert(char **send_data, char *msg, int *send_data_len)
 		break;
 		
 		case 12769885://status
-			s = (char *)malloc(6*sizeof(char));
+			s = (char *)calloc(6, sizeof(char));
 			*send_data = s;
-			*send_data_len = 5;
-			memset(s, '\0', 6);
-			sprintf(s, "%s", "0501 ");
+			*send_data_len = 6;
+			sprintf(s, "%s", "0501 \n");
 			
 		break;
 		
 		
 		case 124954://push
 			
-			*send_data_len = len+15;
-			s = (char *)malloc((len+15)*sizeof(char));
+			*send_data_len = len+17;
+			s = (char *)calloc((len+17), sizeof(char));
 			*send_data = s;
 	
 			while(i<len && (*m) != ' ')
@@ -125,8 +124,8 @@ int protocol_convert(char **send_data, char *msg, int *send_data_len)
 				return -1;
 			}
 		
-			sprintf(s, "1502%05d%05d ", j, len-i-2);
-			s += 15;
+			sprintf(s, "1702%06d%06d ", j, len-i-2);
+			s += 17;
 			memcpy(s, m-j, j);
 			s += j;
 			m++;
@@ -136,7 +135,7 @@ int protocol_convert(char **send_data, char *msg, int *send_data_len)
 		
 		case 12422://pop
 			*send_data_len = len+11;
-			s = (char *)malloc((len+11)*sizeof(char));
+			s = (char *)calloc((len+11), sizeof(char));
 			*send_data = s;
 	
 			while(i<len && (*m) != '\0')
@@ -152,23 +151,22 @@ int protocol_convert(char **send_data, char *msg, int *send_data_len)
 				return -1;
 			}
 		
-			sprintf(s, "1003%05d ", j-1);
-			s += 10;
+			sprintf(s, "1003%06d ", j-1);
+			s += 11;
 			memcpy(s, m-j, j-1);
-			*(s+j+1) = '\0';
+			//*(s+j+1) = '\0';
 		break;
 		
 		case 12583825://queues
-			s = (char *)malloc(6*sizeof(char));
+			s = (char *)calloc(6, sizeof(char));
 			*send_data = s;
-			*send_data_len = 5;
-			memset(s, '\0', 6);
+			*send_data_len = 6;
 			sprintf(s, "%s", "0504 ");
 		break;
 		
 		case 1258371://queue
 			*send_data_len = len+11;
-			s = (char *)malloc((len+11)*sizeof(char));
+			s = (char *)calloc((len+11), sizeof(char));
 			*send_data = s;
 	
 			while(i<len && (*m) != '\0')
@@ -184,15 +182,15 @@ int protocol_convert(char **send_data, char *msg, int *send_data_len)
 				return -1;
 			}
 		
-			sprintf(s, "0705%05d ", j-1);
-			s += 10;
+			sprintf(s, "1105%06d ", j-1);
+			s += 11;
 			memcpy(s, m-j, j-1);
-			*(s+j+1) = '\0';
+			//*(s+j+1) = '\0';
 		break;
 		
 		case 1113058371://delqueue
 			*send_data_len = len+11;
-			s = (char *)malloc((len+11)*sizeof(char));
+			s = (char *)calloc((len+11), sizeof(char));
 			*send_data = s;
 	
 			while(i<len && (*m) != '\0')
@@ -208,10 +206,10 @@ int protocol_convert(char **send_data, char *msg, int *send_data_len)
 				return -1;
 			}
 		
-			sprintf(s, "1006%05d ", j-1);
-			s += 10;
+			sprintf(s, "1006%06d ", j-1);
+			s += 11;
 			memcpy(s, m-j, j-1);
-			*(s+j+1) = '\0';
+			//s+j+1) = '\0';
 		break;
 		
 		case 125866://quit
@@ -265,8 +263,7 @@ int main(int argc, char **argv) {
 
 void cmd_msg_cb(int fd, short events, void *arg) {
 	
-	char *msg = (char *)malloc(1000000*sizeof(char));
-	memset(msg, '\0', 1000000);
+	char *msg = (char *)calloc(1000000, sizeof(char));
 	char **send_data = (char **)malloc(sizeof(char *));
 	int send_data_len = 0;
 	int ret = read(fd, msg, 1000000-2);
@@ -297,13 +294,13 @@ int parse_head_len(char *msg)
 void server_msg_cb(bufferevent *bev, void *arg) {
     char msg[1024] = {'\0'};
 	int head_len = 0;
-    size_t len = bufferevent_read(bev, msg, sizeof(msg)-1);
+    size_t len = bufferevent_read(bev, msg, 1024);
 	head_len = parse_head_len(msg);
 	
 	printf("%s", &msg[head_len]);
-	while(len == sizeof(msg))
+	while(len == 1024)
 	{
-		len = bufferevent_read(bev, msg, sizeof(msg));
+		len = bufferevent_read(bev, msg, 1024);
 		printf("%s", msg);
 	}
 
@@ -311,10 +308,10 @@ void server_msg_cb(bufferevent *bev, void *arg) {
 
 void event_cb(bufferevent *bev, short event, void *arg) {
     if (event & BEV_EVENT_EOF) {
-        //printf("Connection closed.\n");
+        printf("Connection closed.\n");
     }
     else if (event & BEV_EVENT_ERROR) {
-        //printf("Some other error:%s\n",  evutil_socket_error_to_string(111));
+        printf("Some other error:%s\n",  evutil_socket_error_to_string(111));
     }
     else if (event & BEV_EVENT_CONNECTED) {
         //printf("Client has successfully cliented.\n");

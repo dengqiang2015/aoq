@@ -1,6 +1,7 @@
 <?php
 error_reporting(E_ALL); 
 
+
 class Aoq{
 	
 	private $socket;
@@ -9,8 +10,8 @@ class Aoq{
 	{
 		$this->socket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);  
 		if ($this->socket < 0) {  
-				echo "socket创建失败原因: " . socket_strerror($this->socket) . "\n";
-				return false;
+			echo "socket创建失败原因: " . socket_strerror($this->socket) . "\n";
+			exit;
 		} 
  
 		$conn = socket_connect($this->socket, $host, $port);
@@ -27,8 +28,8 @@ class Aoq{
 		$argn = array();
 		while(($start+1) < $headlen)
 		{
-			$argn[$i++] = (int)substr($res, $start, 5);
-			$start+=5;
+			$argn[$i++] = (int)substr($res, $start, 6);
+			$start+=6;
 		}
 		return $argn;
 	}
@@ -63,13 +64,17 @@ class Aoq{
 	{
 		$ret = '';
 		$out = '';
-		$out = socket_read($this->socket, 1024, PHP_NORMAL_READ);
+	
+		$out = socket_read($this->socket, 8192);
+	
 		if($out)
 		{
 			$ret .= $out; 
-			while(strlen($out) == 1024)
+			while(strlen($out) == 8192)
 			{
-				$out = socket_read($this->socket, 1024, PHP_NORMAL_READ);
+			
+				$out = socket_read($this->socket, 8192);
+			
 				$ret .= $out; 
 			}
 		}
@@ -93,7 +98,7 @@ class Aoq{
 			return false;
 		}
 		
-		$head = sprintf("1502%05d%05d ", strlen($qname), strlen($value));
+		$head = sprintf("1502%06d%06d ", strlen($qname), strlen($value));
 		socket_write($this->socket, $head.$qname.$value."\n", strlen($head)+strlen($qname)+strlen($value)+1);
 		$ret = $this->getResponse();
 		$ret = $this->parseResponse($ret);
@@ -108,7 +113,7 @@ class Aoq{
 			return false;
 		}
 		
-		$head = sprintf("1003%05d ", strlen($qname));
+		$head = sprintf("1003%06d ", strlen($qname));
 		socket_write($this->socket, $head.$qname."\n", strlen($head)+strlen($qname)+1);
 		$ret = $this->getResponse();
 		$ret = $this->parseResponse($ret);
@@ -133,7 +138,7 @@ class Aoq{
 			return false;
 		}
 		
-		$head = sprintf("1005%05d ", strlen($qname));
+		$head = sprintf("1005%06d ", strlen($qname));
 		socket_write($this->socket, $head.$qname."\n", strlen($head)+strlen($qname)+1);
 		$ret = $this->getResponse();
 		$ret = $this->parseResponse($ret);
@@ -148,7 +153,7 @@ class Aoq{
 			return false;
 		}
 		
-		$head = sprintf("1006%05d ", strlen($qname));
+		$head = sprintf("1006%06d ", strlen($qname));
 		socket_write($this->socket, $head.$qname."\n", strlen($head)+strlen($qname)+1);
 		$ret = $this->getResponse();
 		$ret = $this->parseResponse($ret);
@@ -166,6 +171,7 @@ class Aoq{
 	}
 	
 }
+
 
 $aoq = new Aoq();
 $aoq->connect('127.0.0.1', 8899);
@@ -190,4 +196,5 @@ var_dump($res);
 
 $res = $aoq->queues();
 var_dump($res);
+
 

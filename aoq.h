@@ -8,7 +8,7 @@
 #endif
 
 
-#define MAXID 4394967295
+#define AOQ_MAX_SIZE 4394967295
 
 
 typedef struct _qnode

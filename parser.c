@@ -5,7 +5,7 @@
 
 int parse_comman_num(ChunkCursor *cursor)
 {
-	char *command_num_str = (char *)malloc(2*sizeof(char));
+	char *command_num_str = (char *)calloc(2, sizeof(char));
 	int command_num = 0;
 	memcpy(command_num_str, *(cursor->ptr), 2);
 	moveCursor(cursor, 2);
@@ -16,7 +16,7 @@ int parse_comman_num(ChunkCursor *cursor)
 
 int parse_head_len(ChunkCursor *cursor)
 {
-	char *head_len_str = (char *)malloc(2*sizeof(char));
+	char *head_len_str = (char *)calloc(2, sizeof(char));
 	int head_len = 0;
 	memcpy(head_len_str, *(cursor->ptr), 2);
 	moveCursor(cursor, 2);
@@ -28,8 +28,8 @@ int parse_head_len(ChunkCursor *cursor)
 int parse_argn(ChunkCursor *cursor, int * argn)
 {
 
-	char *argn_str = (char *)malloc(6*sizeof(char));
-	memset(argn_str, '\0', 6);
+	char *argn_str = (char *)calloc(7, sizeof(char));
+	memset(argn_str, '\0', 7);
 	char *p = *(cursor->ptr);
 	int i = 0;
 
@@ -37,9 +37,9 @@ int parse_argn(ChunkCursor *cursor, int * argn)
 	{
 		if(*p != ' ')
 		{
-			memcpy(argn_str, p, 5);
+			memcpy(argn_str, p, 6);
 			argn[i++] = atoi(argn_str);
-			p +=5;
+			p += 6;
 		}else{
 			p++;
 			break;
@@ -79,11 +79,12 @@ int parse_args(MemSlab *memslab, int * command_num, Arg *args)
 	*command_num = parse_comman_num(cursor);
 	
 	
-	if(head_len <=0 || *command_num <=0)
+	if(head_len <=0 || *command_num <=0 || *command_num > 6)
 	{
-		printf("headlen:%d,commandnum:%d\n", head_len, *command_num);
+		
 		return -1;
 	}
+	
 
 	parse_argn(cursor, argn);
 	

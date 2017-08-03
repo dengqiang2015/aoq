@@ -29,9 +29,13 @@ int pushQueue(AOQ * aoq, Qnode *qnode)
 		aoq->head->next = qnode;
 		aoq->tail->next = qnode;
 	}
+	else if(aoq->total > AOQ_MAX_SIZE)
+	{
+		return -1;
+	}		
 	else
 	{
-		qnode->uniqid = aoq->tail->next->uniqid+1;
+		qnode->uniqid = (aoq->tail->next->uniqid+1) % AOQ_MAX_SIZE;
 		aoq->tail->next->next = qnode;
 		aoq->tail->next = qnode;
 	}

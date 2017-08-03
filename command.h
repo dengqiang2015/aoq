@@ -20,10 +20,11 @@
 #ifndef _INCLUDE_SERVERSTAT_H 
 #define _INCLUDE_SERVERSTAT_H 1  
 #include "serverstat.h"
-#endif  
+#endif
 
-typedef int(*COMMANDFUNCPTR)(int fd, Arg *args);
+char pop_response[1000010] = {'\0'};
 
+char * get_queue_name(Arg *args);
 int nil(int fd, Arg *args);
 int status(int fd, Arg *args);
 int push(int fd, Arg *args);
@@ -31,3 +32,6 @@ int pop(int fd, Arg *args);
 int queues(int fd, Arg *args);
 int queue(int fd, Arg *args);
 int delqueue(int fd, Arg *args);
+
+typedef int(*COMMANDFUNCPTR)(int fd, Arg *args);
+COMMANDFUNCPTR commandFunc[] = {nil, status, push, pop, queues, queue, delqueue};
