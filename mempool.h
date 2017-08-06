@@ -2,9 +2,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define CKSIZE 1024
-#define MPSIZE 100000
-
 typedef struct _chunk_node
 {
 	char * chunk;
@@ -36,7 +33,8 @@ typedef struct _chunk_cursor
 
 
 MemPool * mp;
-
+MemSlab *memslab;
+ 
 int initMemPool(MemPool * mp, int mpsize, int cksize);
 int createMemPool(MemPool * mp);
 ChunkNode * mpalloc();

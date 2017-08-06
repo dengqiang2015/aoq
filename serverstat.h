@@ -14,7 +14,8 @@
 #include "hashtable.h"
 #endif
 
-#define VMRSS_LINE 21//VMRSS所在行, 注:根据不同的系统,位置可能有所区别.
+#define VMPEAK_LINE 12//VMRSS所在行, 注:根据不同的系统,位置可能有所区别.
+#define VMRSS_LINE 16//VMRSS所在行, 注:根据不同的系统,位置可能有所区别.
 #define pid_t  int
 #define MAX_CLIENT_CONNECTION 65535
 
@@ -24,57 +25,48 @@ typedef struct _server_stat
 	char *start_time;
 	const char *host;
 	int port;
+	int max_memory;
+	int max_client_connection;
 	int client_connection;
+	long aoq_max_size;
 	HashTable *ht;
 	MemPool *mp;
+	char *pid_file;
 }ServerStat;
 
 ServerStat *Serv;
 
-int get_phy_mem(const pid_t p)
+void get_process_mem(const pid_t p, int *vmpeak, int *vmrss)
 {
-    char file[64] = {0};//文件名
-    FILE *fd;         //定义文件指针fd
-    char line_buff[256] = {0};  //读取行的缓冲区
+    char file[64] = {'\0'};
+    FILE *fd;
+    char line_buff[256] = {'\0'};
+	char vmstr[30] = {'\0'};
     sprintf(file,"/proc/%d/status",p);
 
-    fd = fopen (file, "r"); //以R读的方式打开文件再赋给指针fd
+    fd = fopen (file, "r");
 
-    //获取vmrss:实际物理内存占用
     int i;
-    char name[32];//存放项目名称
-    int vmrss;//存放内存
-    //读取VmRSS这一行的数据
-    for (i=0;i<VMRSS_LINE-1;i++)
+    for (i=0; i<VMRSS_LINE; i++)
     {
-        char* ret = fgets (line_buff, sizeof(line_buff), fd);
+		char *ret = fgets (line_buff, 256, fd);
+		if(i == (VMPEAK_LINE-1))
+		{
+			 memcpy(vmstr, ret+7, strlen(line_buff)-10);
+			 *vmpeak = atoi(vmstr);
+		}
+		else if( i == VMRSS_LINE-1)
+		{
+			memcpy(vmstr, ret+7, strlen(line_buff)-9);
+			*vmrss = atoi(vmstr);
+		}
+		else
+		{
+			continue;
+		}
+       
     }
-    char* ret1  = fgets (line_buff, sizeof(line_buff), fd);
-    sscanf (line_buff, "%s %d", name,&vmrss);
-    fclose(fd);     //关闭文件fd
-    return vmrss;
+	
+    fclose(fd); 
 }
 
-
-int get_rmem(pid_t p)
-{
-    return get_phy_mem(p);
-}
-
-
-int get_total_mem()
-{
-    const char* file = "/proc/meminfo";//文件名
-    FILE *fd;         //定义文件指针fd
-    char line_buff[256] = {0};  //读取行的缓冲区
-    fd = fopen (file, "r"); //以R读的方式打开文件再赋给指针fd
-
-    //获取memtotal:总内存占用大小
-    int i;
-    char name[32];//存放项目名称
-    int memtotal;//存放内存峰值大小
-    char*ret = fgets (line_buff, sizeof(line_buff), fd);//读取memtotal这一行的数据,memtotal在第1行
-    sscanf (line_buff, "%s %d", name,&memtotal);
-    fclose(fd);     //关闭文件fd
-    return memtotal;
-}

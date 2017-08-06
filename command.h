@@ -24,7 +24,7 @@
 
 char pop_response[1000010] = {'\0'};
 
-char * get_queue_name(Arg *args);
+char * get_queue_name(Arg *args, char *qn);
 int nil(int fd, Arg *args);
 int status(int fd, Arg *args);
 int push(int fd, Arg *args);

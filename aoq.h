@@ -8,9 +8,6 @@
 #endif
 
 
-#define AOQ_MAX_SIZE 4394967295
-
-
 typedef struct _qnode
 {
 	unsigned int uniqid;
@@ -31,3 +28,4 @@ int pushQueue(AOQ *aoq, Qnode *qnode);
 int popQueue(AOQ *aoq, Qnode **qnode);
 int deleteQueue(AOQ *aoq);
 Qnode * createQnode(Arg *arg);
+AOQ * getQueue(char *qname, HashTable *ht, void **result);

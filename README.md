@@ -1,1 +1,1 @@
-# aoq
+# AOQ - Simple queue service.

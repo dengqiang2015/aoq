@@ -12,14 +12,26 @@
 #include<sys/types.h>   
 #include<sys/stat.h>
 #include<sys/time.h>
+#include<getopt.h>
 #include "debug.h"
 
 #ifndef _INCLUDE_SERVERSTAT_H 
 #define _INCLUDE_SERVERSTAT_H 1  
 #include "serverstat.h"
-#endif  
+#endif
 
-void init_daemon(void);
+#define AOQ_VERSION "1.0.0 beta"
+#define HTSIZE 1024
+#define AOQ_MAX_SIZE 2147483647
+#define CKSIZE 1024
+#define MPSIZE 100000
+#define MAX_CLIENT_CONNECTION 65535
+#define MAX_MEMORY 1048576//kb
+#define WORK_DIR_PATH "/tmp"
+#define PID_FILE "/tmp/aoq.pid"
+
+void show_help(void);
+void init_daemon(char *path);
 int mkpidfile(int pid);
 int checkpidfile();   
 void accept_cb(int fd, short events, void* arg);

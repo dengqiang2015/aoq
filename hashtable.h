@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#define HTSIZE 1024
 #define SUCCESS 1
 #define FAILED 0
 #define HASH_LEN 10
