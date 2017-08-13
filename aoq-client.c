@@ -153,8 +153,8 @@ int protocol_convert(char **send_data, char *msg, int *send_data_len)
         break;
         
         case 12422://pop
-            *send_data_len = len+11;
-            s = (char *)calloc((len+11), sizeof(char));
+            *send_data_len = len+12;
+            s = (char *)calloc((len+12), sizeof(char));
             *send_data = s;
     
             while(i<len && (*m) != '\0')
@@ -170,10 +170,10 @@ int protocol_convert(char **send_data, char *msg, int *send_data_len)
                 return -1;
             }
         
-            sprintf(s, "1003%06d ", j-1);
+            sprintf(s, "1103%06d ", j-1);
             s += 11;
             memcpy(s, m-j, j-1);
-            //*(s+j+1) = '\0';
+            *(s+j-1) = '\n';
         break;
         
         case 12583825://queues

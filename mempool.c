@@ -52,7 +52,6 @@ ChunkNode * mpalloc()
         node = (ChunkNode *)malloc(sizeof(ChunkNode));
         node->chunk = (char *)malloc(mp->cksize*sizeof(char));
         memset(node->chunk, '\0', mp->cksize);
-        node->next = NULL;
     }
     else
     {

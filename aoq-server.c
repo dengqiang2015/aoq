@@ -14,6 +14,7 @@
 #include "aoq.c"
 #include "parser.c"
 #include "command.c"
+#include "aoqlog.c"
 
 void show_help(void)
 {
@@ -103,6 +104,7 @@ int checkpidfile(char *pid_file)
 }
 
 
+
 void accept_cb(int fd, short events, void* arg)
 {
     
@@ -180,7 +182,9 @@ void socket_read_cb(int fd, short events, void *arg)
 
     if(r > 0)
     {
+		writeAoqLog(memslab);
         (*commandFunc[command_num])(fd, args);
+		
     }
     else
     {
@@ -216,7 +220,7 @@ int tcp_server_init(int port, int listen_num)
 
     evutil_make_socket_nonblocking(listener);
 
-	return listener;
+    return listener;
 
     error:
         errno_save = errno;
@@ -234,6 +238,20 @@ static void kill_signal(int sig)
     exit(0);
 }
 
+static void event_savelog_cb(evutil_socket_t fd, short event, void *arg)
+{
+
+	int r = saveAoqLog();
+    struct event *savelog;
+    savelog = (struct event *)arg;
+    struct timeval savelog_tv;
+    evutil_timerclear(&savelog_tv);
+    savelog_tv.tv_sec = 2;
+    savelog_tv.tv_usec = 0;
+    evtimer_add(savelog, &savelog_tv);
+   
+} 
+
 int aoq_start()
 {
     int listener = tcp_server_init(Serv->port, 10);
@@ -243,14 +261,39 @@ int aoq_start()
         return -1;
     }
     
+
+    
     struct event_base *base = event_base_new();
 
     struct event *ev_listen = event_new(base, listener, EV_READ | EV_PERSIST, accept_cb, base);
     event_add(ev_listen, NULL);
 
+    struct event savelog;//定时器事件
+    struct timeval savelog_tv;//定时器值
+    
+    evtimer_assign(&savelog, base, event_savelog_cb, (void*)&savelog);
+    //evtimer_new(base, event_test_cb, (void*)&timeout);
+    evutil_timerclear(&savelog_tv);
+    savelog_tv.tv_sec = 2;
+    savelog_tv.tv_usec = 0;
+    evtimer_add(&savelog, &savelog_tv);
+	
+	/*
+	struct event timeout;//定时器事件
+    struct timeval tv;//定时器值
+    
+    evtimer_assign(&timeout, base, event_test_cb, (void*)&timeout);
+    //evtimer_new(base, event_test_cb, (void*)&timeout);
+    evutil_timerclear(&tv);
+    tv.tv_sec = 2;
+    tv.tv_usec = 0;
+    evtimer_add(&timeout, &tv);
+	*/
+
     event_base_dispatch(base);
     return 1;
 }
+
 
 
 int main(int argc, char** argv)
@@ -266,6 +309,8 @@ int main(int argc, char** argv)
     int max_client_connection = 0;
     char *work_dir_path;
     char *pid_file;
+	
+
 
     while ((opt = getopt(argc, argv, "p:q:m:f:t:s:c:l:vdh")) != -1) {
         switch (opt) {
@@ -374,6 +419,7 @@ int main(int argc, char** argv)
     mp = (MemPool *)malloc(sizeof(MemPool));
     initMemPool(mp, mempool_size, chunk_size);
     createMemPool(mp);
+	initAoqLog();
 
     Serv->host = "0.0.0.0";
     Serv->port = port > 0 ? port : 8899;
