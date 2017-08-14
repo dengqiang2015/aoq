@@ -102,7 +102,8 @@ int parse_args(MemSlab *memslab, int * command_num, Arg *args)
     if(i == 0)
     {
         freeMemSlab(memslab);
-    
+		freeCursor(cursor);
+		return 0;
     }
     
     freeCursor(cursor);

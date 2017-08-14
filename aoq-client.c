@@ -126,8 +126,8 @@ int protocol_convert(char **send_data, char *msg, int *send_data_len)
         
         case 124954://push
             
-            *send_data_len = len+17;
-            s = (char *)calloc((len+17), sizeof(char));
+            *send_data_len = len+18;
+            s = (char *)calloc((len+18), sizeof(char));
             *send_data = s;
     
             while(i<len && (*m) != ' ')
@@ -149,7 +149,7 @@ int protocol_convert(char **send_data, char *msg, int *send_data_len)
             s += j;
             m++;
             memcpy(s, m, len-i-1);
-        
+			*(s+len-i-1) = '\n';
         break;
         
         case 12422://pop
@@ -184,8 +184,8 @@ int protocol_convert(char **send_data, char *msg, int *send_data_len)
         break;
         
         case 1258371://queue
-            *send_data_len = len+11;
-            s = (char *)calloc((len+11), sizeof(char));
+            *send_data_len = len+12;
+            s = (char *)calloc((len+12), sizeof(char));
             *send_data = s;
     
             while(i<len && (*m) != '\0')
@@ -204,12 +204,12 @@ int protocol_convert(char **send_data, char *msg, int *send_data_len)
             sprintf(s, "1105%06d ", j-1);
             s += 11;
             memcpy(s, m-j, j-1);
-            //*(s+j+1) = '\0';
+            *(s+j-1) = '\n';
         break;
         
         case 1113058371://delqueue
-            *send_data_len = len+11;
-            s = (char *)calloc((len+11), sizeof(char));
+            *send_data_len = len+12;
+            s = (char *)calloc((len+12), sizeof(char));
             *send_data = s;
     
             while(i<len && (*m) != '\0')
@@ -228,7 +228,7 @@ int protocol_convert(char **send_data, char *msg, int *send_data_len)
             sprintf(s, "1006%06d ", j-1);
             s += 11;
             memcpy(s, m-j, j-1);
-            //s+j+1) = '\0';
+            *(s+j-1) = '\n';
         break;
         
         case 125866://quit
@@ -312,7 +312,6 @@ void cmd_msg_cb(int fd, short events, void *arg) {
     if(c > 0)
     {
         bufferevent *bev = (bufferevent *)arg;
-        //printf("%s\n", *send_data);
         bufferevent_write(bev, *send_data, send_data_len);
     }
 

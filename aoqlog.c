@@ -5,18 +5,23 @@ typedef struct _aoq_log
 	char * log;
 	int len;
 	int size;
+	FILE *fp_logfile;
 }AOQLOG;
 
 AOQLOG *aoqlog;
+
 
 void initAoqLog()
 {
 	
 	aoqlog = (AOQLOG *)malloc(sizeof(AOQLOG));
-	aoqlog->size = 1024*1024*100;
+	aoqlog->size = 1024*1024*50;
 	aoqlog->log = (char *)malloc((aoqlog->size)*sizeof(char));
 	memset(aoqlog->log, '\0', aoqlog->size);
 	aoqlog->len =0;
+	char logfile[4096] = {'\0'};
+	sprintf(logfile, "%s/aoq.log", Serv->work_dir_path);
+	aoqlog->fp_logfile = fopen(logfile, "a");
 }
 
 
@@ -40,28 +45,36 @@ void writeAoqLog(MemSlab *memslab)
 	
 }
 
-int saveAoqLog()
+int saveAoqLog(const int force)
 {
-	if(aoqlog->len == 0)
+	if(aoqlog->len == 0 || (force == 0 && aoqlog->len < 100000))
 	{
 		return 0;
 	}
-	const char *logfile = "/tmp/aoq.log";
-	FILE *fp_logfile;
-    fp_logfile = fopen(logfile, "a");
-    if(fp_logfile == NULL)
-    {
-        return -1;
-    }
-    int r = fprintf(fp_logfile, "%s", aoqlog->log);
-    if(r < 0)
-    {
-        fclose(fp_logfile);
-        return -2;
-    }
-    fclose(fp_logfile);
-	memset(aoqlog->log, '\0', aoqlog->size);
-	aoqlog->len = 0;
+	else
+	{
+		if(aoqlog->fp_logfile == NULL)
+		{
+			char logfile[4096] = {'\0'};
+			sprintf(logfile, "%s/aoq.log", Serv->work_dir_path);
+			aoqlog->fp_logfile = fopen(logfile, "a");
+		}
+		
+		int r = fprintf(aoqlog->fp_logfile, "%s", aoqlog->log);
+		
+		if(r < 0)
+		{
+			fclose(aoqlog->fp_logfile);
+			char logfile[4096] = {'\0'};
+			sprintf(logfile, "%s/aoq.log", Serv->work_dir_path);
+			aoqlog->fp_logfile = fopen(logfile, "a");
+			return -2;
+		}
+		
+		memset(aoqlog->log, '\0', aoqlog->size);
+		aoqlog->len = 0;
+	}
+
     return 1;
 }
 

@@ -26,9 +26,8 @@ int hash_init(HashTable **ht, size_t ht_size) {
 int hash_insert(HashTable *ht, char *key, void *value) {
 
     if (ht->total >= ht->size) {
-        //ht->size = ht->size*2;
-        //ht->buckets = (Bucket *)realloc(ht->buckets, sizeof(Bucket) * (ht->size));
-		return FAILED;
+        ht->size = ht->size*2;
+        ht->buckets = (Bucket *)realloc(ht->buckets, sizeof(Bucket) * (ht->size));
     }
     int index = hash_index(ht, key);
     Bucket *bucket = &ht->buckets[index];

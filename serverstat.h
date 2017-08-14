@@ -32,6 +32,8 @@ typedef struct _server_stat
 	HashTable *ht;
 	MemPool *mp;
 	char *pid_file;
+	char *work_dir_path;
+	int persistent;
 }ServerStat;
 
 ServerStat *Serv;

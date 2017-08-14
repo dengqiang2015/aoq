@@ -22,6 +22,11 @@ int nil(int fd, Arg *args)
 
 int status(int fd, Arg *args)
 {
+	if(fd == 0)
+	{
+		freeArgs(args);
+		return 1;
+	}
     char head[12] = {'\0'};
     char res[512] = {'\0'};
     int vmpeak = 0;
@@ -70,34 +75,44 @@ int push(int fd, Arg *args)
 
     if(args->len == 0 || args->len >= 1024)
     {
-        write(fd, "1102000001 0\n", 12);
+		if(fd != 0)
+		{
+			 write(fd, "1102000001 0\n", 13);
+		}
         freeArgs(args);
         return 1;
     }
     
     char *qname_arg = (char *)malloc((args->len+1)*sizeof(char));
-	    char *qname = get_queue_name(args, qname_arg);
+	char *qname = get_queue_name(args, qname_arg);
     if(strlen(qname) <=0 )
     {
 
         freeArgs(args);
         free(qname_arg);
-		        qname_arg = NULL;
-        write(fd, "1102000001 0\n", 13);
+		qname_arg = NULL;
+        if(fd != 0)
+		{
+			 write(fd, "1102000001 0\n", 13);
+		}
         return 1;
     }
 	 
 	void **result= (void **)calloc(1, sizeof(void *));
-	    AOQ *aoq = getQueue(qname, ht, result);
+	AOQ *aoq = getQueue(qname, ht, result);
     free(qname_arg);
 	
     qname_arg = NULL;
     Qnode *qnode = createQnode(args);
     pushQueue(aoq, qnode);
-    write(fd, "1102000001 1\n", 13);
+	if(fd != 0)
+	{
+		  write(fd, "1102000001 1\n", 13);
+	}
+
 	free(result);
 	result = NULL;
-	    return 1;
+	return 1;
 } 
 
 int pop(int fd, Arg *args)
@@ -105,32 +120,56 @@ int pop(int fd, Arg *args)
     
     if(args->len == 0 || args->len >= 1024)
     {
-        write(fd, "1103000000 \n", 12);
+		if(fd != 0)
+		{
+			write(fd, "1103000000 \n", 12);
+		}
+        
         freeArgs(args);
         return 1;
     }
 
     char *qname_arg = (char *)malloc((args->len+1)*sizeof(char));
-	    char *qname = get_queue_name(args, qname_arg);
+	char *qname = get_queue_name(args, qname_arg);
     if(strlen(qname) <=0 )
     {
-
         freeArgs(args);
         free(qname_arg);
-		        qname_arg = NULL;
-        write(fd, "1102000000 \n", 12);
+		qname_arg = NULL;
+		if(fd != 0)
+		{
+			write(fd, "1103000000 \n", 12);
+		}
+		
         return 1;
     }
 	
 	void **result= (void **)calloc(1, sizeof(void *));
-	    AOQ *aoq = getQueue(qname, ht, result);
+	AOQ *aoq = getQueue(qname, ht, result);
     free(qname_arg);
-	    qname_arg = NULL;
+	qname_arg = NULL;
 
     Qnode **qnode = (Qnode **)malloc(sizeof(Qnode *));
     int r = popQueue(aoq, qnode);
+	
+	
+	
     if(r >0)
     {
+		
+		if(fd == 0)
+		{
+			freeArgs((*qnode)->arg);
+			free(*qnode);
+			*qnode = NULL;
+			free(qnode);
+			qnode = NULL;
+			freeArgs(args);
+			free(result);
+			result = NULL;
+			return 1;
+		}
+	
 
         Arg *arg = (*qnode)->arg+1;
         char **ptr = arg->cursor->ptr;
@@ -145,26 +184,34 @@ int pop(int fd, Arg *args)
         }
         write(fd, pop_response, strlen(pop_response));
         freeArgs((*qnode)->arg);
-        ptr = NULL;
     }
     else
     {
-        write(fd, "1103000000 \n", 12);
+		if(fd != 0)
+		{
+			write(fd, "1103000000 \n", 12);
+		}
     }
     
     free(*qnode);
-	    *qnode = NULL;
+	*qnode = NULL;
 	free(qnode);
 	qnode = NULL;
-	    freeArgs(args);
+	freeArgs(args);
 	free(result);
 	result = NULL;
-	    return 1;
+	return 1;
 
 } 
 
 int queues(int fd, Arg *args)
 {
+	
+	if(fd == 0)
+	{
+		freeArgs(args);
+		return 1;
+	}
 
     int arg_len = 11;
     char qs[1048576] = {'\0'};
@@ -191,6 +238,12 @@ int queues(int fd, Arg *args)
 
 int queue(int fd, Arg *args)
 {
+	if(fd == 0)
+	{
+		freeArgs(args);
+		return 1;
+	}
+	
     if(args->len == 0 || args->len >= 1024)
     {
         write(fd, "1105000000 \n", 12);
@@ -210,12 +263,12 @@ int queue(int fd, Arg *args)
         freeArgs(args);
         free(qname_arg);
 		qname_arg = NULL;
-		        write(fd, "1105000000 \n", 12);
+		write(fd, "1105000000 \n", 12);
         return 1;
     }
     
     void **r = (void **)calloc(1, sizeof(void *));
-	    int is_exist = hash_find(ht, qname, r);
+	int is_exist = hash_find(ht, qname, r);
     
     AOQ *aoq = (AOQ *)(*r);
 
@@ -244,10 +297,10 @@ int queue(int fd, Arg *args)
         write(fd, res, arg_len);
     }
     free(qname_arg);
-	    qname_arg = NULL;
+	qname_arg = NULL;
     freeArgs(args);
     free(r);
-	    r = NULL;
+	r = NULL;
     return 1;
 }  
 
@@ -266,12 +319,12 @@ int delqueue(int fd, Arg *args)
     {
         freeArgs(args);
         free(qname_arg);
-		        qname_arg = NULL;
+		qname_arg = NULL;
         write(fd, "1106000001 0\n", 13);
         return 1;
     }
     void **r = (void **)malloc(sizeof(void *));
-	    int is_exist = hash_find(ht, qname, r);
+	int is_exist = hash_find(ht, qname, r);
     freeArgs(args);
     AOQ *aoq = (AOQ *)(*r);
 
@@ -287,9 +340,9 @@ int delqueue(int fd, Arg *args)
     }
     
     free(qname_arg);
-	    qname_arg = NULL;
+	qname_arg = NULL;
     free(r);
-	    r = NULL;
+	r = NULL;
     return 1;
 
 }  

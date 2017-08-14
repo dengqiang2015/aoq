@@ -31,6 +31,9 @@ void show_help(void)
           "-s <num>      size of mempool(default: 100000)\n"
           "-c <num>      size of each chunk(default: 1024)\n"
           "-l <num>      Maximum of client connection(default: 65535)\n"
+		  "-x            work path of aoq\n"
+		  "-r            recover data from aof log file\n"
+		  "-v            show version of aoq\n"
           "-d            run as a daemon\n"
           "-h            print this help and exit\n\n"
           "Use command \"killall aoq-server\", \"pkill aoq-server\" and \"kill `cat /tmp/aoq.pid`\" to stop aoq-server.\n"
@@ -104,6 +107,84 @@ int checkpidfile(char *pid_file)
 }
 
 
+int readLogLine(char *line, char *chunk, int size)
+{
+	int len = strlen(line);
+	len = len > size ? size : len;
+	memcpy(chunk, line, len);
+	return len;
+}
+
+void execute_command_line(char *line)
+{
+	int fd = 0;
+    ChunkNode *node = mpalloc();
+    int len = readLogLine(line, node->chunk, CKSIZE-1);
+	if(len<12)
+	{
+		mpfree(node);
+		return;
+	}
+    int r = 0;
+
+    MemSlab *memslab = createMemSlab(1);
+    insertMemSlab(memslab, node);
+    int command_num = 0;
+
+
+    while(len == CKSIZE-1)
+    {
+		line += len;
+        node = mpalloc();
+        len = readLogLine(line, node->chunk, CKSIZE-1);
+        insertMemSlab(memslab, node);
+    }
+    
+
+    Arg *args = (Arg *)malloc(5*sizeof(Arg));
+    Arg *a = args;
+    for(r=0;r<5;r++)
+    {
+        a->cursor = NULL;
+        a->len = 0;
+        a++;
+    }
+
+    r = parse_args(memslab, &command_num, args);
+
+    if(r > 0)
+    {
+        (*commandFunc[command_num])(fd, args);
+    }
+    else
+    {
+        freeArgs(args);
+    }
+
+}
+
+
+void recovery_from_aoflog()
+{
+
+	char logfile[4096] = {'\0'};
+	sprintf(logfile, "%s/aoq.log", Serv->work_dir_path);
+	const int LEN = 1024*1025+100;
+	char line[LEN] = {'\0'};
+	FILE *fp_logfile = fopen(logfile, "r");
+	
+	if(fp_logfile != NULL)
+	{
+		while(!feof(fp_logfile)){
+			if(fgets(line, LEN, fp_logfile) != NULL)
+			{
+				execute_command_line(line);
+			}
+		}
+	}
+
+}
+
 
 void accept_cb(int fd, short events, void* arg)
 {
@@ -138,8 +219,7 @@ void accept_cb(int fd, short events, void* arg)
 
 void socket_read_cb(int fd, short events, void *arg)
 {
-    ml =0;
-    fr = 0;
+
     ChunkNode *node = mpalloc();
     int len = read(fd, node->chunk, CKSIZE-1);
     int r = 0;
@@ -180,11 +260,13 @@ void socket_read_cb(int fd, short events, void *arg)
     r = parse_args(memslab, &command_num, args);
 
 
-    if(r > 0)
+    if(r >= 0)
     {
-		writeAoqLog(memslab);
+		if(r > 0)
+		{
+			writeAoqLog(memslab);
+		}
         (*commandFunc[command_num])(fd, args);
-		
     }
     else
     {
@@ -232,6 +314,12 @@ int tcp_server_init(int port, int listen_num)
 
 static void kill_signal(int sig) 
 {
+	if(Serv->persistent == 1)
+	{
+		int r = saveAoqLog(1);
+		fclose(aoqlog->fp_logfile);
+	}
+	
     if(checkpidfile(Serv->pid_file) == 1 ) {
         remove(Serv->pid_file);
     }
@@ -241,12 +329,12 @@ static void kill_signal(int sig)
 static void event_savelog_cb(evutil_socket_t fd, short event, void *arg)
 {
 
-	int r = saveAoqLog();
+	int r = saveAoqLog(0);
     struct event *savelog;
     savelog = (struct event *)arg;
     struct timeval savelog_tv;
     evutil_timerclear(&savelog_tv);
-    savelog_tv.tv_sec = 2;
+    savelog_tv.tv_sec = 1;
     savelog_tv.tv_usec = 0;
     evtimer_add(savelog, &savelog_tv);
    
@@ -261,35 +349,25 @@ int aoq_start()
         return -1;
     }
     
-
     
     struct event_base *base = event_base_new();
 
     struct event *ev_listen = event_new(base, listener, EV_READ | EV_PERSIST, accept_cb, base);
     event_add(ev_listen, NULL);
 
-    struct event savelog;//定时器事件
-    struct timeval savelog_tv;//定时器值
-    
-    evtimer_assign(&savelog, base, event_savelog_cb, (void*)&savelog);
-    //evtimer_new(base, event_test_cb, (void*)&timeout);
-    evutil_timerclear(&savelog_tv);
-    savelog_tv.tv_sec = 2;
-    savelog_tv.tv_usec = 0;
-    evtimer_add(&savelog, &savelog_tv);
-	
-	/*
-	struct event timeout;//定时器事件
-    struct timeval tv;//定时器值
-    
-    evtimer_assign(&timeout, base, event_test_cb, (void*)&timeout);
-    //evtimer_new(base, event_test_cb, (void*)&timeout);
-    evutil_timerclear(&tv);
-    tv.tv_sec = 2;
-    tv.tv_usec = 0;
-    evtimer_add(&timeout, &tv);
-	*/
-
+	if(Serv->persistent == 1)
+	{
+		struct event savelog;//定时器事件
+		struct timeval savelog_tv;//定时器值
+		
+		evtimer_assign(&savelog, base, event_savelog_cb, (void*)&savelog);
+		//evtimer_new(base, event_test_cb, (void*)&timeout);
+		evutil_timerclear(&savelog_tv);
+		savelog_tv.tv_sec = 1;
+		savelog_tv.tv_usec = 0;
+		evtimer_add(&savelog, &savelog_tv);
+	}
+   
     event_base_dispatch(base);
     return 1;
 }
@@ -307,12 +385,14 @@ int main(int argc, char** argv)
     int chunk_size = 0;
     int daemon = 0;
     int max_client_connection = 0;
-    char *work_dir_path;
-    char *pid_file;
+    char *work_dir_path = NULL;
+    char *pid_file = NULL;
+	int persistent = 0;
+	int recover = 0;
 	
 
 
-    while ((opt = getopt(argc, argv, "p:q:m:f:t:s:c:l:vdh")) != -1) {
+    while ((opt = getopt(argc, argv, "p:q:m:f:t:s:c:l:xrvdh")) != -1) {
         switch (opt) {
             case 'p':
                 port = atoi(optarg);
@@ -324,7 +404,7 @@ int main(int argc, char** argv)
                 max_memory = atoi(optarg);
             break;
             case 'f':
-                work_dir_path = optarg;
+                work_dir_path = (char *)optarg;
             break;
             case 't':
                 ht_size = atoi(optarg);
@@ -337,6 +417,12 @@ int main(int argc, char** argv)
             break;
             case 'l':
                 max_client_connection = atoi(optarg);
+            break;
+			case 'x':
+                persistent = 1;
+            break;
+			case 'r':
+                recover = 1;
             break;
             case 'v':
                 printf("%s\n", AOQ_VERSION);
@@ -356,28 +442,22 @@ int main(int argc, char** argv)
 
     Serv = (ServerStat *)malloc(sizeof(ServerStat));
         
+	if(work_dir_path == NULL)
+	{
+		int wplen = strlen(WORK_DIR_PATH);
+		work_dir_path = (char *)malloc((wplen+1)*sizeof(char));
+		memset(work_dir_path, '\0', wplen+1);
+		memcpy(work_dir_path, WORK_DIR_PATH, wplen);
+	}
+	
+	if(daemon == 1)
+	{
+	   
+		int wplen = strlen(work_dir_path);
+		pid_file = (char *)malloc((wplen+9)*sizeof(char));
+		memset(pid_file, '\0', wplen+9);
+		sprintf(pid_file, "%s/aoq.pid", work_dir_path);
 
-    if(daemon == 1)
-    {
-        if(work_dir_path == NULL)
-        {
-            int wplen = strlen(WORK_DIR_PATH);
-            work_dir_path = (char *)malloc((wplen+1)*sizeof(char));
-            memset(work_dir_path, '\0', wplen+1);
-            memcpy(work_dir_path, WORK_DIR_PATH, wplen);
-            
-            int pflen = strlen(PID_FILE);
-            pid_file = (char *)calloc(pflen, sizeof(char));
-            memcpy(pid_file, PID_FILE, pflen);
-        }
-        else
-        {
-            int wplen = strlen(work_dir_path);
-            pid_file = (char *)malloc((wplen+9)*sizeof(char));
-            memset(pid_file, '\0', wplen+9);
-            sprintf(pid_file, "%s/aoq.pid", work_dir_path);
-        }
-        
         if(checkpidfile(pid_file) == 1 ) {
             printf("%s is exist!\n", pid_file);
             return 1;
@@ -419,7 +499,6 @@ int main(int argc, char** argv)
     mp = (MemPool *)malloc(sizeof(MemPool));
     initMemPool(mp, mempool_size, chunk_size);
     createMemPool(mp);
-	initAoqLog();
 
     Serv->host = "0.0.0.0";
     Serv->port = port > 0 ? port : 8899;
@@ -429,8 +508,19 @@ int main(int argc, char** argv)
     Serv->max_client_connection = max_client_connection > 0 ? max_client_connection : MAX_CLIENT_CONNECTION;
     Serv->client_connection = 0;
     Serv->aoq_max_size = aoq_max_size > 0 ? aoq_max_size : AOQ_MAX_SIZE;
+	Serv->work_dir_path = work_dir_path;
+	Serv->persistent = persistent;
     
-    
+	if(recover == 1)
+	{
+		recovery_from_aoflog();
+	}
+	
+	if(persistent == 1)
+	{
+		initAoqLog();
+	}
+	
     signal(SIGPIPE, SIG_IGN);
     signal(SIGINT, kill_signal);
     signal(SIGKILL, kill_signal);
