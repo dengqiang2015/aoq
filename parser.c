@@ -111,6 +111,20 @@ int parse_args(MemSlab *memslab, int * command_num, Arg *args)
     return 1;
 }
 
+Arg *createArgs(int num)
+{
+    Arg *args = (Arg *)malloc(num*sizeof(Arg));
+    Arg *a = args;
+	int i = 0;
+    for(i = 0; i < num; i++)
+    {
+        a->cursor = NULL;
+        a->len = 0;
+        a++;
+    }
+	return args;
+}
+
 
 int freeArgs(Arg *args)
 {

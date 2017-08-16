@@ -1,16 +1,5 @@
-#include<stdio.h>
-
-typedef struct _aoq_log
-{
-	char * log;
-	int len;
-	int size;
-	FILE *fp_logfile;
-}AOQLOG;
-
-AOQLOG *aoqlog;
-
-
+#include "aoqlog.h"
+ 
 void initAoqLog()
 {
 	
@@ -20,8 +9,8 @@ void initAoqLog()
 	memset(aoqlog->log, '\0', aoqlog->size);
 	aoqlog->len =0;
 	char logfile[4096] = {'\0'};
-	sprintf(logfile, "%s/aoq.log", Serv->work_dir_path);
-	aoqlog->fp_logfile = fopen(logfile, "a");
+	sprintf(logfile, "%s/%s", Serv->work_dir_path, AOQ_LOG_FILE_NAME);
+	aoqlog->fp_logfile = fopen(logfile, "ab+");
 }
 
 
@@ -56,8 +45,8 @@ int saveAoqLog(const int force)
 		if(aoqlog->fp_logfile == NULL)
 		{
 			char logfile[4096] = {'\0'};
-			sprintf(logfile, "%s/aoq.log", Serv->work_dir_path);
-			aoqlog->fp_logfile = fopen(logfile, "a");
+			sprintf(logfile, "%s/%s", Serv->work_dir_path, AOQ_LOG_FILE_NAME);
+			aoqlog->fp_logfile = fopen(logfile, "ab+");
 		}
 		
 		int r = fprintf(aoqlog->fp_logfile, "%s", aoqlog->log);
@@ -66,8 +55,8 @@ int saveAoqLog(const int force)
 		{
 			fclose(aoqlog->fp_logfile);
 			char logfile[4096] = {'\0'};
-			sprintf(logfile, "%s/aoq.log", Serv->work_dir_path);
-			aoqlog->fp_logfile = fopen(logfile, "a");
+			sprintf(logfile, "%s/%s", Serv->work_dir_path, AOQ_LOG_FILE_NAME);
+			aoqlog->fp_logfile = fopen(logfile, "ab+");
 			return -2;
 		}
 		
@@ -78,9 +67,24 @@ int saveAoqLog(const int force)
     return 1;
 }
 
-void  handleAoqLog()
+void getTime(char *timestr)
 {
-	
+	time_t timep;
+	struct tm *p;
+	time(&timep);
+	p = gmtime(&timep);
+	sprintf(timestr, "%d-%d-%d %d:%d:%d", (1900+p->tm_year), (1+p->tm_mon), p->tm_mday, p->tm_hour, p->tm_min, p->tm_sec);
+}
+
+void serverlog(const char *slog)
+{
+	char logfile[4096] = {'\0'};
+	char timestr[128] = {'\0'};
+	getTime(timestr);
+	sprintf(logfile, "%s/%s", Serv->work_dir_path, SERVER_LOG_FILE_NAME);
+	FILE *fp_logfile = fopen(logfile, "ab+");
+	fprintf(fp_logfile, "[%s] %s\n", timestr, slog);
+	fclose(fp_logfile);
 }
 
 

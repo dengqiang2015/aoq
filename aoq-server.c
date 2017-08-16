@@ -55,6 +55,7 @@ void init_daemon(char *path)
     }       
     else if(pid< 0)
     {
+		serverlog("Failed to create daemon.");
         exit(1);
     }  
     
@@ -65,6 +66,7 @@ void init_daemon(char *path)
     }       
     else if(pid< 0)
     {
+		serverlog("Failed to create daemon.");
         exit(1);
     }  
      
@@ -140,15 +142,7 @@ void execute_command_line(char *line)
         insertMemSlab(memslab, node);
     }
     
-
-    Arg *args = (Arg *)malloc(5*sizeof(Arg));
-    Arg *a = args;
-    for(r=0;r<5;r++)
-    {
-        a->cursor = NULL;
-        a->len = 0;
-        a++;
-    }
+	Arg *args = createArgs(5);
 
     r = parse_args(memslab, &command_num, args);
 
@@ -167,11 +161,12 @@ void execute_command_line(char *line)
 void recovery_from_aoflog()
 {
 
+	serverlog("Recover data from aof log.");
 	char logfile[4096] = {'\0'};
-	sprintf(logfile, "%s/aoq.log", Serv->work_dir_path);
+	sprintf(logfile, "%s/%s", Serv->work_dir_path, AOQ_LOG_FILE_NAME);
 	const int LEN = 1024*1025+100;
 	char line[LEN] = {'\0'};
-	FILE *fp_logfile = fopen(logfile, "r");
+	FILE *fp_logfile = fopen(logfile, "rb");
 	
 	if(fp_logfile != NULL)
 	{
@@ -181,7 +176,9 @@ void recovery_from_aoflog()
 				execute_command_line(line);
 			}
 		}
+		fclose(fp_logfile);
 	}
+	serverlog("Recover data complate.");
 
 }
 
@@ -211,7 +208,7 @@ void accept_cb(int fd, short events, void* arg)
     }
     else
     {
-        perror(" Connection error, exceeding maximum number of connections! ");
+        serverlog("Connection error, exceeding maximum number of connections.");
         return; 
     }
     
@@ -248,21 +245,14 @@ void socket_read_cb(int fd, short events, void *arg)
     }
     
 
-    Arg *args = (Arg *)malloc(5*sizeof(Arg));
-    Arg *a = args;
-    for(r=0;r<5;r++)
-    {
-        a->cursor = NULL;
-        a->len = 0;
-        a++;
-    }
+    Arg *args = createArgs(5);
 
     r = parse_args(memslab, &command_num, args);
 
 
     if(r >= 0)
     {
-		if(r > 0)
+		if(r > 0 && Serv->persistent == 1)
 		{
 			writeAoqLog(memslab);
 		}
@@ -283,7 +273,11 @@ int tcp_server_init(int port, int listen_num)
 
     listener = socket(AF_INET, SOCK_STREAM, 0);
     if( listener == -1 )
+	{
+		serverlog("Create socket error.");
         return -1;
+	}
+
 
     evutil_make_listen_socket_reuseable(listener);
 
@@ -293,13 +287,18 @@ int tcp_server_init(int port, int listen_num)
     sin.sin_port = htons(port);
 
     if( bind(listener, (SA*)&sin, sizeof(sin)) < 0 )
-    
+	{
+		serverlog("Bind socket error.");
         goto error;
+	}
+		
 
     if( listen(listener, listen_num) < 0)
+	{
+		serverlog("Listen socket error.");
         goto error;
-
-
+	}
+		
     evutil_make_socket_nonblocking(listener);
 
     return listener;
@@ -323,6 +322,8 @@ static void kill_signal(int sig)
     if(checkpidfile(Serv->pid_file) == 1 ) {
         remove(Serv->pid_file);
     }
+	
+	serverlog("Aoq server stop.");
     exit(0);
 }
 
@@ -345,7 +346,7 @@ int aoq_start()
     int listener = tcp_server_init(Serv->port, 10);
     if( listener == -1 )
     {
-        perror(" tcp_server_init error ");
+        serverlog("Tcp server init error.");
         return -1;
     }
     
@@ -367,7 +368,7 @@ int aoq_start()
 		savelog_tv.tv_usec = 0;
 		evtimer_add(&savelog, &savelog_tv);
 	}
-   
+	
     event_base_dispatch(base);
     return 1;
 }
@@ -390,8 +391,6 @@ int main(int argc, char** argv)
 	int persistent = 0;
 	int recover = 0;
 	
-
-
     while ((opt = getopt(argc, argv, "p:q:m:f:t:s:c:l:xrvdh")) != -1) {
         switch (opt) {
             case 'p':
@@ -456,7 +455,7 @@ int main(int argc, char** argv)
 		int wplen = strlen(work_dir_path);
 		pid_file = (char *)malloc((wplen+9)*sizeof(char));
 		memset(pid_file, '\0', wplen+9);
-		sprintf(pid_file, "%s/aoq.pid", work_dir_path);
+		sprintf(pid_file, "%s/%s", work_dir_path, AOQ_PID_FILE_NAME);
 
         if(checkpidfile(pid_file) == 1 ) {
             printf("%s is exist!\n", pid_file);
@@ -469,9 +468,8 @@ int main(int argc, char** argv)
         if(r < 0)
         {
             free(Serv);
-            Serv = NULL;
-                        
-            perror("make pid file error");
+            Serv = NULL;        
+            serverlog("Make pid file error.");
             return -1;
         }
         Serv->pid_file = pid_file;
@@ -528,6 +526,7 @@ int main(int argc, char** argv)
     signal(SIGTERM, kill_signal);
     signal(SIGHUP, kill_signal);
 
+	serverlog("Aoq server start.");
     aoq_start();
 
     return 0;

@@ -28,7 +28,7 @@
 #define MAX_CLIENT_CONNECTION 65535
 #define MAX_MEMORY 1048576//kb
 #define WORK_DIR_PATH "/tmp"
-#define PID_FILE "/tmp/aoq.pid"
+#define AOQ_PID_FILE_NAME "aoq.pid"
 
 void show_help(void);
 void init_daemon(char *path);
