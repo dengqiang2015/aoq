@@ -15,8 +15,9 @@
 #include "parser.c"
 #include "command.c"
 #include "aoqlog.c"
+#include "lsp.c"
 
-void show_help(void)
+static void show_help(void)
 {
     const char *b = "--------------------------------------------------------------------------------------------------\n"
           "Simple Queue Service - AOQ v" AOQ_VERSION " (08, 2017)\n\n"
@@ -28,14 +29,15 @@ void show_help(void)
           "-m <num>      Maximum of memory,unit is KB(default: 1048576)\n"
           "-f <path>     The Path of work dir(default: /tmp)\n"
           "-t <num>      Maximum of queues(default: 1024)\n"
-          "-s <num>      size of mempool(default: 100000)\n"
-          "-c <num>      size of each chunk(default: 1024)\n"
+          "-s <num>      Size of mempool(default: 100000)\n"
+          "-c <num>      Size of each chunk(default: 1024)\n"
           "-l <num>      Maximum of client connection(default: 65535)\n"
-		  "-x            work path of aoq\n"
-		  "-r            recover data from aof log file\n"
-		  "-v            show version of aoq\n"
-          "-d            run as a daemon\n"
-          "-h            print this help and exit\n\n"
+		  "-a            Automatically optimize memory pools\n"
+		  "-x            Persistent storage\n"
+		  "-r            Recover data from aof log file\n"
+		  "-v            Show version of aoq\n"
+          "-d            Run as a daemon\n"
+          "-h            Print this help and exit\n\n"
           "Use command \"killall aoq-server\", \"pkill aoq-server\" and \"kill `cat /tmp/aoq.pid`\" to stop aoq-server.\n"
           "Please note that don't use the command \"pkill -9 aoq-server\" and \"kill -9 PID of aoq-server\"!\n"
           "\n"
@@ -45,7 +47,8 @@ void show_help(void)
     fprintf(stderr, b, strlen(b));
 }
 
-void init_daemon(char *path)   
+
+static void init_daemon(char *path)   
 {   
     int pid;   
     int i;   
@@ -109,81 +112,8 @@ int checkpidfile(char *pid_file)
 }
 
 
-int readLogLine(char *line, char *chunk, int size)
-{
-	int len = strlen(line);
-	len = len > size ? size : len;
-	memcpy(chunk, line, len);
-	return len;
-}
 
-void execute_command_line(char *line)
-{
-	int fd = 0;
-    ChunkNode *node = mpalloc();
-    int len = readLogLine(line, node->chunk, CKSIZE-1);
-	if(len<12)
-	{
-		mpfree(node);
-		return;
-	}
-    int r = 0;
-
-    MemSlab *memslab = createMemSlab(1);
-    insertMemSlab(memslab, node);
-    int command_num = 0;
-
-
-    while(len == CKSIZE-1)
-    {
-		line += len;
-        node = mpalloc();
-        len = readLogLine(line, node->chunk, CKSIZE-1);
-        insertMemSlab(memslab, node);
-    }
-    
-	Arg *args = createArgs(5);
-
-    r = parse_args(memslab, &command_num, args);
-
-    if(r > 0)
-    {
-        (*commandFunc[command_num])(fd, args);
-    }
-    else
-    {
-        freeArgs(args);
-    }
-
-}
-
-
-void recovery_from_aoflog()
-{
-
-	serverlog("Recover data from aof log.");
-	char logfile[4096] = {'\0'};
-	sprintf(logfile, "%s/%s", Serv->work_dir_path, AOQ_LOG_FILE_NAME);
-	const int LEN = 1024*1025+100;
-	char line[LEN] = {'\0'};
-	FILE *fp_logfile = fopen(logfile, "rb");
-	
-	if(fp_logfile != NULL)
-	{
-		while(!feof(fp_logfile)){
-			if(fgets(line, LEN, fp_logfile) != NULL)
-			{
-				execute_command_line(line);
-			}
-		}
-		fclose(fp_logfile);
-	}
-	serverlog("Recover data complate.");
-
-}
-
-
-void accept_cb(int fd, short events, void* arg)
+static void accept_cb(int fd, short events, void* arg)
 {
     
     evutil_socket_t sockfd;
@@ -214,11 +144,11 @@ void accept_cb(int fd, short events, void* arg)
     
 }
 
-void socket_read_cb(int fd, short events, void *arg)
+static void socket_read_cb(int fd, short events, void *arg)
 {
 
     ChunkNode *node = mpalloc();
-    int len = read(fd, node->chunk, CKSIZE-1);
+    int len = read(fd, node->chunk, CK_SIZE-1);
     int r = 0;
 
     if( len <=0 )
@@ -237,10 +167,10 @@ void socket_read_cb(int fd, short events, void *arg)
     int command_num = 0;
 
 
-    while(len == CKSIZE-1)
+    while(len == CK_SIZE-1)
     {
         node = mpalloc();
-        len = read(fd, node->chunk, CKSIZE-1);
+        len = read(fd, node->chunk, CK_SIZE-1);
         insertMemSlab(memslab, node);
     }
     
@@ -338,8 +268,87 @@ static void event_savelog_cb(evutil_socket_t fd, short event, void *arg)
     savelog_tv.tv_sec = 1;
     savelog_tv.tv_usec = 0;
     evtimer_add(savelog, &savelog_tv);
-   
+    return;
+}
+
+static void createParamDataFile()
+{
+	
+	char datafile[1024] = {'\0'};
+	sprintf(datafile, "%s/%s", Serv->work_dir_path, AOQ_DATA_FILE_NAME);
+	FILE *fp_datafile = fopen(datafile, "wb");
+	if(fp_datafile != NULL)
+	{
+		fputc('\0', fp_datafile);
+		fclose(fp_datafile);
+	}
+	return;
+}
+
+void saveParamtersData()
+{
+
+
+	char datafile[1024] = {'\0'};
+	sprintf(datafile, "%s/%s", Serv->work_dir_path, AOQ_DATA_FILE_NAME);
+	int X[21];
+	int Y[21];
+	int i = 0;
+
+	for(i=0;i<21;i++)
+	{
+		X[i] = i;
+		Y[i] = Serv->chunk_used_num;
+	}
+
+	FILE *fp_datafile = fopen(datafile, "rb");
+	if (!fp_datafile)
+	{
+		return;
+	}
+	
+	i=0;
+	while(!feof(fp_datafile) && i<20)
+	{
+		if (2 != fscanf(fp_datafile, (const char*)"%d %d", &X[i], &Y[i]))
+		{ 
+			break;
+		}
+		i++;
+	}
+	
+	fclose(fp_datafile);
+	fp_datafile = fopen(datafile, "wb");
+	
+	for(i=1;i<21;i++)
+	{
+		fprintf(fp_datafile, "%d %d\n", i, Y[i]);
+	}
+	fclose(fp_datafile);
+    return;
+
+}
+
+
+static void event_calculate_cb(evutil_socket_t fd, short event, void *arg)
+{
+
+	double X = 21;
+	int num;
+	saveParamtersData();
+	num = (int)ForecastY(X);
+	num = num ? num : Serv->chunk_used_num;
+	tuneMempool(num);
+    struct event *calculate;
+    calculate = (struct event *)arg;
+    struct timeval calculate_tv;
+    evutil_timerclear(&calculate_tv);
+    calculate_tv.tv_sec = 10;
+    calculate_tv.tv_usec = 0;
+    evtimer_add(calculate, &calculate_tv);
+
 } 
+
 
 int aoq_start()
 {
@@ -358,8 +367,8 @@ int aoq_start()
 
 	if(Serv->persistent == 1)
 	{
-		struct event savelog;//定时器事件
-		struct timeval savelog_tv;//定时器值
+		struct event savelog;
+		struct timeval savelog_tv;
 		
 		evtimer_assign(&savelog, base, event_savelog_cb, (void*)&savelog);
 		//evtimer_new(base, event_test_cb, (void*)&timeout);
@@ -369,10 +378,22 @@ int aoq_start()
 		evtimer_add(&savelog, &savelog_tv);
 	}
 	
+	if(Serv->aomp == 1)
+	{
+		struct event calculate;
+		struct timeval calculate_tv;
+		
+		evtimer_assign(&calculate, base, event_calculate_cb, (void*)&calculate);
+		//evtimer_new(base, event_test_cb, (void*)&timeout);
+		evutil_timerclear(&calculate_tv);
+		calculate_tv.tv_sec = 1;
+		calculate_tv.tv_usec = 0;
+		evtimer_add(&calculate, &calculate_tv);
+	}	
+	
     event_base_dispatch(base);
     return 1;
 }
-
 
 
 int main(int argc, char** argv)
@@ -390,8 +411,9 @@ int main(int argc, char** argv)
     char *pid_file = NULL;
 	int persistent = 0;
 	int recover = 0;
+	int aomp = 0;
 	
-    while ((opt = getopt(argc, argv, "p:q:m:f:t:s:c:l:xrvdh")) != -1) {
+    while ((opt = getopt(argc, argv, "p:q:m:f:t:s:c:l:axrvdh")) != -1) {
         switch (opt) {
             case 'p':
                 port = atoi(optarg);
@@ -416,6 +438,9 @@ int main(int argc, char** argv)
             break;
             case 'l':
                 max_client_connection = atoi(optarg);
+            break;
+			case 'a':
+                aomp = 1;
             break;
 			case 'x':
                 persistent = 1;
@@ -492,14 +517,14 @@ int main(int argc, char** argv)
     ht_size = ht_size > 0 ? ht_size : HTSIZE;
     hash_init(&ht, ht_size);
     
-    mempool_size = mempool_size > 0 ? mempool_size : MPSIZE;
-    chunk_size = chunk_size > 0 ? chunk_size : CKSIZE;
+    mempool_size = mempool_size > 0 ? mempool_size : MP_SIZE;
+    chunk_size = chunk_size > 0 ? chunk_size : CK_SIZE;
     mp = (MemPool *)malloc(sizeof(MemPool));
     initMemPool(mp, mempool_size, chunk_size);
     createMemPool(mp);
 
-    Serv->host = "0.0.0.0";
-    Serv->port = port > 0 ? port : 8899;
+    Serv->host = DEFAULT_HOST;
+    Serv->port = port > 0 ? port : DEFAULT_PORT;
     Serv->ht = ht;
     Serv->mp = mp;
     Serv->max_memory = max_memory > 0 ? max_memory : MAX_MEMORY;
@@ -508,6 +533,8 @@ int main(int argc, char** argv)
     Serv->aoq_max_size = aoq_max_size > 0 ? aoq_max_size : AOQ_MAX_SIZE;
 	Serv->work_dir_path = work_dir_path;
 	Serv->persistent = persistent;
+	Serv->chunk_used_num = 0;
+	Serv->aomp = aomp;
     
 	if(recover == 1)
 	{
@@ -517,6 +544,11 @@ int main(int argc, char** argv)
 	if(persistent == 1)
 	{
 		initAoqLog();
+	}
+	
+	if(aomp == 1)
+	{
+		createParamDataFile();
 	}
 	
     signal(SIGPIPE, SIG_IGN);

@@ -45,3 +45,4 @@ int freeMemSlab(MemSlab *memslab);
 ChunkCursor * createCursor();
 int moveCursor(ChunkCursor * cursor, int len);
 int freeCursor(ChunkCursor * cursor);
+void tuneMempool(int num);

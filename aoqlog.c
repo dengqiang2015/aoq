@@ -8,7 +8,7 @@ void initAoqLog()
 	aoqlog->log = (char *)malloc((aoqlog->size)*sizeof(char));
 	memset(aoqlog->log, '\0', aoqlog->size);
 	aoqlog->len =0;
-	char logfile[4096] = {'\0'};
+	char logfile[1024] = {'\0'};
 	sprintf(logfile, "%s/%s", Serv->work_dir_path, AOQ_LOG_FILE_NAME);
 	aoqlog->fp_logfile = fopen(logfile, "ab+");
 }
@@ -44,7 +44,7 @@ int saveAoqLog(const int force)
 	{
 		if(aoqlog->fp_logfile == NULL)
 		{
-			char logfile[4096] = {'\0'};
+			char logfile[1024] = {'\0'};
 			sprintf(logfile, "%s/%s", Serv->work_dir_path, AOQ_LOG_FILE_NAME);
 			aoqlog->fp_logfile = fopen(logfile, "ab+");
 		}
@@ -54,7 +54,7 @@ int saveAoqLog(const int force)
 		if(r < 0)
 		{
 			fclose(aoqlog->fp_logfile);
-			char logfile[4096] = {'\0'};
+			char logfile[1024] = {'\0'};
 			sprintf(logfile, "%s/%s", Serv->work_dir_path, AOQ_LOG_FILE_NAME);
 			aoqlog->fp_logfile = fopen(logfile, "ab+");
 			return -2;
@@ -78,7 +78,7 @@ void getTime(char *timestr)
 
 void serverlog(const char *slog)
 {
-	char logfile[4096] = {'\0'};
+	char logfile[1024] = {'\0'};
 	char timestr[128] = {'\0'};
 	getTime(timestr);
 	sprintf(logfile, "%s/%s", Serv->work_dir_path, SERVER_LOG_FILE_NAME);
@@ -87,4 +87,76 @@ void serverlog(const char *slog)
 	fclose(fp_logfile);
 }
 
+
+int readLogLine(char *line, char *chunk, int size)
+{
+	int len = strlen(line);
+	len = len > size ? size : len;
+	memcpy(chunk, line, len);
+	return len;
+}
+
+static void execute_command_line(char *line)
+{
+	int fd = 0;
+    ChunkNode *node = mpalloc();
+    int len = readLogLine(line, node->chunk, CK_SIZE-1);
+	if(len<12)
+	{
+		mpfree(node);
+		return;
+	}
+    int r = 0;
+
+    MemSlab *memslab = createMemSlab(1);
+    insertMemSlab(memslab, node);
+    int command_num = 0;
+
+
+    while(len == CK_SIZE-1)
+    {
+		line += len;
+        node = mpalloc();
+        len = readLogLine(line, node->chunk, CK_SIZE-1);
+        insertMemSlab(memslab, node);
+    }
+    
+	Arg *args = createArgs(5);
+
+    r = parse_args(memslab, &command_num, args);
+
+    if(r > 0)
+    {
+        (*commandFunc[command_num])(fd, args);
+    }
+    else
+    {
+        freeArgs(args);
+    }
+
+}
+
+static void recovery_from_aoflog()
+{
+
+	serverlog("Recover data from aof log.");
+	char logfile[1024] = {'\0'};
+	sprintf(logfile, "%s/%s", Serv->work_dir_path, AOQ_LOG_FILE_NAME);
+	const int LEN = 1024*1025+100;
+	char line[LEN] = {'\0'};
+	FILE *fp_logfile = fopen(logfile, "rb");
+	
+	if(fp_logfile != NULL)
+	{
+		while(!feof(fp_logfile)){
+			if(fgets(line, LEN, fp_logfile) != NULL)
+			{
+				execute_command_line(line);
+			}
+		}
+		fclose(fp_logfile);
+	}
+	serverlog("Recover data complate.");
+
+}
 

@@ -37,8 +37,8 @@ int createMemPool(MemPool * mp)
             mp->tail->next = node;
         }
 
-        mp->total++;
     }
+	mp->total = mp->size;
     return 1;
 }
 
@@ -59,7 +59,8 @@ ChunkNode * mpalloc()
         mp->head->next = mp->head->next->next;
         mp->total--;
     }
-
+	
+	Serv->chunk_used_num++;
     node->next = NULL;
     return node;
 }
@@ -68,32 +69,23 @@ ChunkNode * mpalloc()
 int mpfree(ChunkNode * node)
 {
 
-    if(mp->total >= mp->size)
-    {
-        free(node->chunk);
-        node->chunk = NULL;
-        free(node);
-        node = NULL;
-    }
-    else
-    {
-        memset(node->chunk, '\0', mp->cksize);
-        node->next = NULL;
-        
-        if(mp->total == 0)
-        {
-            mp->head->next = node;
-            mp->tail->next = node;
-        }
-        else
-        {
-            mp->tail->next->next = node;
-            mp->tail->next = node;
-        }
-        
-        mp->total++;
+	memset(node->chunk, '\0', mp->cksize);
+	node->next = NULL;
+	
+	if(mp->total == 0)
+	{
+		mp->head->next = node;
+		mp->tail->next = node;
+	}
+	else
+	{
+		mp->tail->next->next = node;
+		mp->tail->next = node;
+	}
+	
+	mp->total++;
 
-    }
+	Serv->chunk_used_num--;
     return 1;
 }
 
@@ -209,4 +201,65 @@ int freeCursor(ChunkCursor * cursor)
     free(cursor);
     cursor = NULL;
     return 1;
+}
+
+void tuneMempool(int num)
+{
+	int i=0;
+	int total = mp->total;
+	
+	ChunkNode *node = NULL;
+	if((num+MP_RESERVE_SIZE) >= 0)
+	{
+		if(total > (num+MP_RESERVE_SIZE))
+		{
+
+			for(i =0; i<(total-num-MP_RESERVE_SIZE); i++)
+			{
+			
+				    node = NULL;
+				
+					if(mp->head->next != NULL)
+					{
+
+						node = mp->head->next;
+						mp->head->next = mp->head->next->next;
+						node->next = NULL;
+						free(node->chunk);
+						node->chunk = NULL;
+						free(node);
+						node = NULL;
+						mp->total--;
+					}
+								
+			}
+
+		}
+		else if(total < (num+MP_RESERVE_SIZE))
+		{
+			for(i=0;i<(num+MP_RESERVE_SIZE-total);i++)
+			{
+				node = (ChunkNode *)malloc(sizeof(ChunkNode));
+				node->chunk = (char *)malloc(mp->cksize*sizeof(char));
+				memset(node->chunk, '\0', mp->cksize);
+				node->next = NULL;
+				if(mp->tail->next == NULL)
+				{
+					mp->head->next = node;
+					mp->tail->next = node;
+				}
+				else
+				{
+					mp->tail->next->next = node;
+					mp->tail->next = node;
+				}
+
+				mp->total++;
+			}
+		}
+			
+		
+	}
+	
+	return;
 }

@@ -180,7 +180,7 @@ function mtime()
 }
 
 $aoq = new Aoq();
-$aoq->connect('127.0.0.1', 8899);
+$aoq->connect('127.0.0.1', 5211);
 
 
 $res = $aoq->status();

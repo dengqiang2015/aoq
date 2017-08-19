@@ -14,8 +14,8 @@
 #include "hashtable.h"
 #endif
 
-#define VMPEAK_LINE 12//VMRSS所在行, 注:根据不同的系统,位置可能有所区别.
-#define VMRSS_LINE 16//VMRSS所在行, 注:根据不同的系统,位置可能有所区别.
+#define VMPEAK_LINE 12
+#define VMRSS_LINE 16
 #define pid_t  int
 #define MAX_CLIENT_CONNECTION 65535
 
@@ -34,6 +34,8 @@ typedef struct _server_stat
 	char *pid_file;
 	char *work_dir_path;
 	int persistent;
+	int chunk_used_num;
+	int aomp;
 }ServerStat;
 
 ServerStat *Serv;
