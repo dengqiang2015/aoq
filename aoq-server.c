@@ -208,7 +208,9 @@ int tcp_server_init(int port, int listen_num)
         return -1;
 	}
 
-
+	const char flag = 1;
+    setsockopt(listener, IPPROTO_TCP, TCP_NODELAY, (char *)&flag, sizeof(flag));
+	
     evutil_make_listen_socket_reuseable(listener);
 
     struct sockaddr_in sin;

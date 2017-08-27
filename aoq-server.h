@@ -6,6 +6,7 @@
 #include<event.h>
 #include<time.h>
 #include<sys/ioctl.h>
+
 #include<assert.h>
 #include<signal.h>
 #include<sys/param.h>   
@@ -14,6 +15,7 @@
 #include<sys/time.h>
 #include<getopt.h>
 #include<zlib.h>
+#include<netinet/tcp.h>  /* TCP_NODELAY */
 #include "debug.h"
 
 #ifndef _INCLUDE_SERVERSTAT_H 
