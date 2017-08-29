@@ -209,7 +209,7 @@ $res = $aoq->queues();
 var_dump($res);
 
 $res = $aoq->queue('test');
-var_dump($res );
+var_dump($res);
 
 $res = $aoq->delqueue('test');
 var_dump($res);

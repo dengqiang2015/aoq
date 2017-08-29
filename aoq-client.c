@@ -140,6 +140,7 @@ int protocol_convert(char **send_data, char *msg, int *send_data_len)
             if((len-i-2) <=0)
             {
                 printf("%s parameter error\n", command_str);
+				free(command_str);
                 return -1;
             }
         
@@ -167,6 +168,7 @@ int protocol_convert(char **send_data, char *msg, int *send_data_len)
             if((j-1) <=0)
             {
                 printf("%s parameter error\n", command_str);
+				free(command_str);
                 return -1;
             }
         
@@ -198,6 +200,7 @@ int protocol_convert(char **send_data, char *msg, int *send_data_len)
             if((j-1) <=0)
             {
                 printf("%s parameter error\n", command_str);
+				free(command_str);
                 return -1;
             }
         
@@ -222,6 +225,7 @@ int protocol_convert(char **send_data, char *msg, int *send_data_len)
             if((j-1) <=0)
             {
                 printf("%s parameter error\n", command_str);
+				free(command_str);
                 return -1;
             }
         
@@ -232,14 +236,17 @@ int protocol_convert(char **send_data, char *msg, int *send_data_len)
         break;
         
         case 125866://quit
+			free(command_str);
             exit(0);
         break;
         
         default:
-            printf("unknow command %s\n", command_str); 
+            printf("unknow command %s\n", command_str);
+			free(command_str);			
             return -1;
         break;
     }
+	free(command_str);
     return 1;
 }
 
@@ -260,7 +267,8 @@ void cmd_msg_cb(int fd, short events, void *arg) {
         bufferevent *bev = (bufferevent *)arg;
         bufferevent_write(bev, *send_data, send_data_len);
     }
-
+	free(*send_data);
+	free(send_data);
 }
 
 int parse_head_len(char *msg)

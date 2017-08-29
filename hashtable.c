@@ -174,8 +174,7 @@ int hash_keys(HashTable *ht, char *keys, int *len)
 
         }
         
-        memcpy(ks, &n, 1);
-        kslen = kslen+1;
+        memcpy(ks-1, &n, 1);
     }
     
 

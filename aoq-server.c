@@ -112,7 +112,6 @@ int checkpidfile(char *pid_file)
 }
 
 
-
 static void accept_cb(int fd, short events, void* arg)
 {
     
@@ -151,7 +150,7 @@ static void socket_read_cb(int fd, short events, void *arg)
     int len = read(fd, node->chunk, CK_SIZE-1);
     int r = 0;
 
-    if( len <=0 )
+    if( len <= 0 )
     {
         mpfree(node);
         struct event *ev = (struct event*)arg;
