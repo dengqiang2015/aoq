@@ -166,14 +166,13 @@ static void socket_read_cb(int fd, short events, void *arg)
     int command_num = 0;
 
 
-    while(len == CK_SIZE-1)
+    while(*(node->chunk+len-1) != '\n')
     {
         node = mpalloc();
         len = read(fd, node->chunk, CK_SIZE-1);
         insertMemSlab(memslab, node);
     }
     
-
     Arg *args = createArgs(5);
 
     r = parse_args(memslab, &command_num, args);
