@@ -65,7 +65,7 @@ int status(int fd, Arg *args)
     arg_len = strlen(res);
     sprintf(head, "1101%06d ", arg_len-12);
     memcpy(res, head, 11);
-    write(fd, res, arg_len);
+    write_reply(fd, res, arg_len);
     freeArgs(args);
     return 1;
 } 
@@ -77,7 +77,7 @@ int push(int fd, Arg *args)
     {
         if(fd != 0)
         {
-            write(fd, "1102000001 0\n", 13);
+            write_reply(fd, "1102000001 0\n", 13);
         }
         freeArgs(args);
         return 1;
@@ -93,7 +93,7 @@ int push(int fd, Arg *args)
         qname_arg = NULL;
         if(fd != 0)
         {
-            write(fd, "1102000001 0\n", 13);
+            write_reply(fd, "1102000001 0\n", 13);
         }
         return 1;
     }
@@ -107,7 +107,7 @@ int push(int fd, Arg *args)
     pushQueue(aoq, qnode);
     if(fd != 0)
     {
-        write(fd, "1102000001 1\n", 13);
+        write_reply(fd, "1102000001 1\n", 13);
     }
 
     free(result);
@@ -122,7 +122,7 @@ int pop(int fd, Arg *args)
     {
         if(fd != 0)
         {
-            write(fd, "1103000000 \n", 12);
+            write_reply(fd, "1103000000 \n", 12);
         }
         
         freeArgs(args);
@@ -138,7 +138,7 @@ int pop(int fd, Arg *args)
         qname_arg = NULL;
         if(fd != 0)
         {
-            write(fd, "1103000000 \n", 12);
+            write_reply(fd, "1103000000 \n", 12);
         }
         
         return 1;
@@ -173,23 +173,23 @@ int pop(int fd, Arg *args)
 
         Arg *arg = (*qnode)->arg+1;
         char **ptr = arg->cursor->ptr;
-        memset(pop_response, '\0', arg->len+12);
-        sprintf(pop_response, "1103%06d ", arg->len);
-        strcat(pop_response, *ptr);
+        memset(response, '\0', arg->len+12);
+        sprintf(response, "1103%06d ", arg->len);
+        strcat(response, *ptr);
         while(arg->cursor->node->next != NULL)
         {
             arg->cursor->node = arg->cursor->node->next;
             *ptr = arg->cursor->node->chunk;
-            strcat(pop_response, *ptr);
+            strcat(response, *ptr);
         }
-        write(fd, pop_response, strlen(pop_response));
+        write_reply(fd, response, strlen(response));
         freeArgs((*qnode)->arg);
     }
     else
     {
         if(fd != 0)
         {
-            write(fd, "1103000000 \n", 12);
+            write_reply(fd, "1103000000 \n", 12);
         }
     }
     
@@ -221,14 +221,14 @@ int queues(int fd, Arg *args)
     
     if(arg_len == 11)
     {
-        write(fd, "1104000000 \n", 12);
+        write_reply(fd, "1104000000 \n", 12);
     }
     else
     {
         char head[12] = {'\0'};
         sprintf(head, "1104%06d ", arg_len-12);
         memcpy(qs, head, 11);
-        write(fd, qs, arg_len);
+        write_reply(fd, qs, arg_len);
     }
 
     freeArgs(args);
@@ -246,7 +246,7 @@ int queue(int fd, Arg *args)
     
     if(args->len == 0 || args->len >= 1024)
     {
-        write(fd, "1105000000 \n", 12);
+        write_reply(fd, "1105000000 \n", 12);
         freeArgs(args);
         return 1;
     }
@@ -263,7 +263,7 @@ int queue(int fd, Arg *args)
         freeArgs(args);
         free(qname_arg);
         qname_arg = NULL;
-        write(fd, "1105000000 \n", 12);
+        write_reply(fd, "1105000000 \n", 12);
         return 1;
     }
     
@@ -274,7 +274,7 @@ int queue(int fd, Arg *args)
 
     if(is_exist != 1 || aoq == NULL)
     {
-        write(fd, "1105000000 \n", 12);
+        write_reply(fd, "1105000000 \n", 12);
     }
     else
     {
@@ -294,7 +294,7 @@ int queue(int fd, Arg *args)
         arg_len = strlen(res);
         sprintf(head, "1105%06d ", arg_len-12);
         memcpy(res, head, 11);
-        write(fd, res, arg_len);
+        write_reply(fd, res, arg_len);
     }
     free(qname_arg);
     qname_arg = NULL;
@@ -308,7 +308,7 @@ int delqueue(int fd, Arg *args)
 {
     if(args->len == 0 || args->len >= 1024)
     {
-        write(fd, "1106000001 0\n", 13);
+        write_reply(fd, "1106000001 0\n", 13);
         freeArgs(args);
         return 1;
     }
@@ -320,7 +320,7 @@ int delqueue(int fd, Arg *args)
         freeArgs(args);
         free(qname_arg);
         qname_arg = NULL;
-        write(fd, "1106000001 0\n", 13);
+        write_reply(fd, "1106000001 0\n", 13);
         return 1;
     }
     void **r = (void **)malloc(sizeof(void *));
@@ -330,13 +330,13 @@ int delqueue(int fd, Arg *args)
 
     if(is_exist != 1 || aoq == NULL)
     {
-        write(fd, "1106000001 0\n", 13);
+        write_reply(fd, "1106000001 0\n", 13);
     }
     else
     {
         deleteQueue(aoq);
         hash_delete(ht, qname);
-        write(fd, "1106000001 1\n", 13);
+        write_reply(fd, "1106000001 1\n", 13);
     }
     
     free(qname_arg);

@@ -145,32 +145,40 @@ static void accept_cb(int fd, short events, void* arg)
 
 static void socket_read_cb(int fd, short events, void *arg)
 {
-
-    ChunkNode *node = mpalloc();
-    int len = read(fd, node->chunk, CK_SIZE-1);
-    int r = 0;
-
-    if( len <= 0 )
-    {
-        mpfree(node);
+	int r = 0;
+	int command_num = 0;
+	int offset = 0;
+	int buflen = 0;
+	int len = 0;
+	MemSlab *memslab = NULL;
+	ChunkNode *node = NULL;
+	char *cmd = command;
+	buflen = read_cmd(fd);
+	
+	if(buflen < 0)
+	{
         struct event *ev = (struct event*)arg;
-
         Serv->client_connection--;
         close(event_get_fd(ev));
         event_free(ev);
         return ;
-    }
-    
-    MemSlab *memslab = createMemSlab(1);
+	}
+
+	
+	memslab = createMemSlab(1);
+    node = mpalloc();
+    len = read_buffer(cmd, buflen, node->chunk, CK_SIZE-1);
+	cmd += len;
+	buflen -= len;
     insertMemSlab(memslab, node);
-    int command_num = 0;
-
-
+    
     while(*(node->chunk+len-1) != '\n')
     {
         node = mpalloc();
-        len = read(fd, node->chunk, CK_SIZE-1);
+        len = read_buffer(cmd, buflen, node->chunk, CK_SIZE-1);
         insertMemSlab(memslab, node);
+		cmd += len;
+		buflen -= len;
     }
     
     Arg *args = createArgs(5);
@@ -207,7 +215,12 @@ int tcp_server_init(int port, int listen_num)
 	}
 
 	const char flag = 1;
-    setsockopt(listener, IPPROTO_TCP, TCP_NODELAY, (char *)&flag, sizeof(flag));
+	setsockopt(listener, IPPROTO_TCP, TCP_NODELAY, (char *)&flag, sizeof(flag));
+	//int timeout = 1000;
+	//setsockopt(listener, SOL_SOCKET, SO_SNDTIMEO, (char *)&timeout, sizeof(int));
+	//setsockopt(listener, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(int));
+	//int rbl = 16*1024;
+	//setsockopt(listener, SOL_SOCKET, SO_RCVBUF, (const char*)&rbl, sizeof(int));
 	
     evutil_make_listen_socket_reuseable(listener);
 

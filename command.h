@@ -22,7 +22,8 @@
 #include "serverstat.h"
 #endif
 
-char pop_response[1000010] = {'\0'};
+char response[1000010] = {'\0'};
+char command[1000010] = {'\0'};
 
 char * get_queue_name(Arg *args, char *qn);
 int nil(int fd, Arg *args);
