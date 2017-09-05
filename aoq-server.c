@@ -114,11 +114,19 @@ int checkpidfile(char *pid_file)
 
 static void accept_cb(int fd, short events, void* arg)
 {
+	
+	
     
     evutil_socket_t sockfd;
 
     struct sockaddr_in client;
     socklen_t len;
+	
+	if(Serv->status == -1)
+	{
+		serverlog("Exceeds the maximum value of memory settings.");
+        return; 
+	}
     
     sockfd = accept(fd, (struct sockaddr*)&client, &len );
     evutil_make_socket_nonblocking(sockfd);
@@ -363,6 +371,32 @@ static void event_calculate_cb(evutil_socket_t fd, short event, void *arg)
 } 
 
 
+static void event_memcheck_cb(evutil_socket_t fd, short event, void *arg)
+{
+
+    int vmpeak = 0;
+    int vmrss = 0;
+    get_process_mem(Serv->pid, &vmpeak, &vmrss);
+	
+	if(vmrss >= Serv->max_memory)
+	{
+		Serv->status = -1;
+	}
+	else if(Serv->max_memory - vmrss > Serv->max_memory*0.7)
+	{
+		malloc_trim(0);
+	}
+	
+    struct event *memcheck;
+    memcheck = (struct event *)arg;
+    struct timeval memcheck_tv;
+    evutil_timerclear(&memcheck_tv);
+    memcheck_tv.tv_sec = 5;
+    memcheck_tv.tv_usec = 0;
+    evtimer_add(memcheck, &memcheck_tv);
+
+} 
+
 int aoq_start()
 {
     int listener = tcp_server_init(Serv->port, 10);
@@ -402,8 +436,21 @@ int aoq_start()
 		calculate_tv.tv_sec = 1;
 		calculate_tv.tv_usec = 0;
 		evtimer_add(&calculate, &calculate_tv);
-	}	
+	}
+
+	if(Serv->max_memory > 0)
+	{
+		struct event memcheck;
+		struct timeval memcheck_tv;
+		
+		evtimer_assign(&memcheck, base, event_memcheck_cb, (void*)&memcheck);
+		evutil_timerclear(&memcheck_tv);
+		memcheck_tv.tv_sec = 5;
+		memcheck_tv.tv_usec = 0;
+		evtimer_add(&memcheck, &memcheck_tv);
+	}
 	
+	Serv->status = 1;
     event_base_dispatch(base);
     return 1;
 }
@@ -540,7 +587,7 @@ int main(int argc, char** argv)
     Serv->port = port > 0 ? port : DEFAULT_PORT;
     Serv->ht = ht;
     Serv->mp = mp;
-    Serv->max_memory = max_memory > 0 ? max_memory : MAX_MEMORY;
+    Serv->max_memory = max_memory > 0 ? max_memory : 0;
     Serv->max_client_connection = max_client_connection > 0 ? max_client_connection : MAX_CLIENT_CONNECTION;
     Serv->client_connection = 0;
     Serv->aoq_max_size = aoq_max_size > 0 ? aoq_max_size : AOQ_MAX_SIZE;
@@ -548,6 +595,7 @@ int main(int argc, char** argv)
 	Serv->persistent = persistent;
 	Serv->chunk_used_num = 0;
 	Serv->aomp = aomp;
+	Serv->status = 0;
     
 	if(recover == 1)
 	{

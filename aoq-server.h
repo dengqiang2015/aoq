@@ -6,7 +6,7 @@
 #include<event.h>
 #include<time.h>
 #include<sys/ioctl.h>
-
+#include<malloc.h>
 #include<assert.h>
 #include<signal.h>
 #include<sys/param.h>   
@@ -32,7 +32,6 @@
 #define MP_SIZE 100000
 #define MP_RESERVE_SIZE 10000
 #define MAX_CLIENT_CONNECTION 65535
-#define MAX_MEMORY 1048576//kb
 #define WORK_DIR_PATH "/tmp"
 #define AOQ_PID_FILE_NAME "aoq.pid"
 #define AOQ_DATA_FILE_NAME "parameter.dat"

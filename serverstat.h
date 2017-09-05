@@ -36,6 +36,7 @@ typedef struct _server_stat
 	int persistent;
 	int chunk_used_num;
 	int aomp;
+	int status;
 }ServerStat;
 
 ServerStat *Serv;
