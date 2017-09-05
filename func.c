@@ -1,3 +1,4 @@
+#include <errno.h>
 #include "func.h"
 
 char * trim(char * s, int len)
@@ -23,25 +24,48 @@ int read_buffer(char *buf, int buflen, char *chunk, const int len)
 int read_cmd(int fd)
 {
 	char *cmd = command;
-	int sz = 16384;
+	int sz = 17520;
 	int buflen = 0;
 	int len = read(fd, cmd, sz);
-	buflen += len;
-	cmd += len;
-	
-	if( len <= 0 )
-    {
+	//disconnect
+	if( len == 0 )
+        {
 		return -1;
 	}
-	
-	while(*(cmd-1) != '\n')
+
+       if(len < 0)
+       {
+		if(errno == EAGAIN ||  errno == EWOULDBLOCK || errno == EINTR )
+		{
+			return read_cmd(fd);
+		}
+		return -1;		
+       }
+
+    buflen += len;
+    cmd += len;
+    while(*(cmd-1) != '\n')
     {
 		len = read(fd, cmd, sz);
+		
+		if(len == 0)
+		{
+			return -1;
+		}		
+
+		if(len < 0)
+                {
+		    if(errno == EAGAIN ||  errno == EWOULDBLOCK || errno == EINTR )
+			{
+                     		continue;
+			}
+			return -1;
+                }
 		cmd += len;
 		buflen += len;
     }
-	*cmd = '\0';
-	return buflen;
+    *cmd = '\0';
+    return buflen;
 }
 
 void write_reply(int fd, const char *buf, int buflen)

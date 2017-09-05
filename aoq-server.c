@@ -219,8 +219,8 @@ int tcp_server_init(int port, int listen_num)
 	//int timeout = 1000;
 	//setsockopt(listener, SOL_SOCKET, SO_SNDTIMEO, (char *)&timeout, sizeof(int));
 	//setsockopt(listener, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(int));
-	//int rbl = 16*1024;
-	//setsockopt(listener, SOL_SOCKET, SO_RCVBUF, (const char*)&rbl, sizeof(int));
+	int rbl = 32*1024;
+	setsockopt(listener, SOL_SOCKET, SO_RCVBUF, (const char*)&rbl, sizeof(int));
 	
     evutil_make_listen_socket_reuseable(listener);
 
