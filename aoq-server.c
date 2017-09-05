@@ -124,6 +124,7 @@ static void accept_cb(int fd, short events, void* arg)
 	
 	if(Serv->status == -1)
 	{
+        close(fd);
 		serverlog("Exceeds the maximum value of memory settings.");
         return; 
 	}
@@ -381,10 +382,14 @@ static void event_memcheck_cb(evutil_socket_t fd, short event, void *arg)
 	if(vmrss >= Serv->max_memory)
 	{
 		Serv->status = -1;
+		malloc_trim(0);
+		serverlog("Exceeds the maximum value of memory settings.");
+		serverlog("Enforce free memory.");
 	}
 	else if(Serv->max_memory - vmrss > Serv->max_memory*0.7)
 	{
 		malloc_trim(0);
+		serverlog("Enforce free memory.");
 	}
 	
     struct event *memcheck;

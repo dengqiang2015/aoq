@@ -1,6 +1,6 @@
 <?php
 error_reporting(E_ALL); 
-
+/*
 class Aoq{
     
     private $socket;
@@ -188,23 +188,24 @@ function mtime()
     $sec = substr($sec, -4);
     return ((float)$sec + (float)$usec);
 }
-
+*/
 
 $aoq = new Aoq();
 $aoq->connect('127.0.0.1', 5211);
 
-
+/*
 $res = $aoq->status();
 var_dump($res);
+*/
 
 $push_data = str_repeat('ok', 1024);
 
-$res = $aoq->push('test', $push_data);
-var_dump($res);
+for($i=0;$i<50000;$i++){
+	$res = $aoq->push('test', $push_data);
+	$res = $aoq->pop('test');
+}
 
-$res = $aoq->pop('test');
-var_dump($res);
-
+/*
 $res = $aoq->queues();
 var_dump($res);
 
@@ -216,4 +217,4 @@ var_dump($res);
 
 $res = $aoq->queues();
 var_dump($res);
-
+*/
